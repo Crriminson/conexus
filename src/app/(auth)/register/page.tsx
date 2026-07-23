@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { signup } from "../actions";
+import { createClient } from "@/utils/supabase/client";
 
 const ROLES = [
   { value: "ApplicantCompany", label: "Applicant Company" },
@@ -60,6 +61,16 @@ function RegisterForm() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
   const [role, setRole] = useState("ApplicantCompany");
+
+  const handleGoogleSignup = async () => {
+    const supabase = createClient();
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${location.origin}/auth/callback`,
+      },
+    });
+  };
 
   return (
     <div className="flex min-h-screen">
@@ -147,7 +158,7 @@ function RegisterForm() {
 
                   <Field className="pt-4 space-y-4">
                     <SubmitButton />
-                    <Button variant="outline" type="button" className="w-full h-11 transition-all">
+                    <Button variant="outline" type="button" onClick={handleGoogleSignup} className="w-full h-11 transition-all">
                       Sign up with Google
                     </Button>
                     <FieldDescription className="text-center pt-2">

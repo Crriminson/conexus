@@ -23,6 +23,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { login } from "../actions";
+import { createClient } from "@/utils/supabase/client";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -44,6 +45,16 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
   const message = searchParams.get("message");
+
+  const handleGoogleLogin = async () => {
+    const supabase = createClient();
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${location.origin}/auth/callback`,
+      },
+    });
+  };
 
   return (
     <div className="flex min-h-screen">
@@ -113,7 +124,7 @@ function LoginForm() {
                   </Field>
                   <Field className="pt-4 space-y-4">
                     <SubmitButton />
-                    <Button variant="outline" type="button" className="w-full h-11 transition-all">
+                    <Button variant="outline" type="button" onClick={handleGoogleLogin} className="w-full h-11 transition-all">
                       Login with Google
                     </Button>
                     <FieldDescription className="text-center pt-2">
