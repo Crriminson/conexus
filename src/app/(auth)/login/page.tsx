@@ -5,6 +5,7 @@ import { ActivitySquare, Loader2, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
+import { AuthSidebar } from "@/components/auth/AuthSidebar";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -37,39 +38,7 @@ function LoginForm() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Left Pane - Visuals */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-slate-900 text-white p-12 relative overflow-hidden">
-        {/* Background gradient effect */}
-        <div className="absolute top-[-10%] left-[-10%] w-[120%] h-[120%] bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-slate-900 pointer-events-none blur-3xl rounded-full" />
-        
-        <div className="relative z-10">
-          <Link href="/" className="flex items-center gap-3 w-fit hover:opacity-80 transition-opacity">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-              <ActivitySquare className="h-6 w-6" />
-            </div>
-            <span className="text-2xl font-bold tracking-tight">CONEXUS</span>
-          </Link>
-        </div>
-        
-        <div className="relative z-10 max-w-lg">
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-6 leading-tight">
-            Streamline your IPO journey.
-          </h1>
-          <p className="text-lg text-slate-300 leading-relaxed mb-8">
-            The intelligent platform for SMEs, Merchant Bankers, and Legal Advisors to collaborate, prepare, and validate IPO documentation seamlessly.
-          </p>
-          <div className="flex items-center gap-4">
-            <div className="flex -space-x-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-10 w-10 rounded-full border-2 border-slate-900 bg-slate-800" />
-              ))}
-            </div>
-            <p className="text-sm font-medium text-slate-400">
-              Trusted by 100+ IPO professionals
-            </p>
-          </div>
-        </div>
-      </div>
+      <AuthSidebar />
 
       {/* Right Pane - Form */}
       <div className="flex-1 flex items-center justify-center bg-white px-4 py-12 sm:px-6 lg:px-8">
