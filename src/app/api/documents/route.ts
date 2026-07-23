@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { prisma } from '@/db';
-import { requireAuth } from '@/utils/supabase/auth';
+import { requireProjectAuth } from '@/utils/supabase/auth';
 
 const ALLOWED_TYPES = [
   'application/pdf',
@@ -16,15 +16,14 @@ const MAX_SIZE = 50 * 1024 * 1024; // 50 MB
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAuth();
-
-    // Parse form data
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const projectId = formData.get('projectId') as string | null;
 
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     if (!projectId) return NextResponse.json({ error: 'No projectId provided' }, { status: 400 });
+
+    await requireProjectAuth(projectId);
 
     // Validate file
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -84,6 +83,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ document }, { status: 201 });
   } catch (err: any) {
+    if (err.message.includes('Forbidden')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (err.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
@@ -91,12 +91,12 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth();
-
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');
 
     if (!projectId) return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
+
+    await requireProjectAuth(projectId);
 
     const documents = await prisma.document.findMany({
       where: { projectId },
@@ -105,6 +105,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ documents });
   } catch (err: any) {
+    if (err.message.includes('Forbidden')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (err.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

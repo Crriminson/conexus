@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/db';
 import { generate } from '@/lib/llmClient';
-import { requireAuth } from '@/utils/supabase/auth';
+import { requireProjectAuth } from '@/utils/supabase/auth';
 import { getInterviewGenerationPrompt } from '@/lib/prompts';
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAuth();
-
     const { projectId } = await request.json();
 
     if (!projectId) {
       return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
     }
+
+    await requireProjectAuth(projectId);
 
     // 1. Fetch current facts
     const facts = await prisma.knowledgeBaseFact.findMany({
@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ questions });
   } catch (err: any) {
     console.error("Generate questions error:", err);
+    if (err.message.includes('Forbidden')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (err.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

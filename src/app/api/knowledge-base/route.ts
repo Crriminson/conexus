@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/db';
-import { requireAuth } from '@/utils/supabase/auth';
+import { requireProjectAuth } from '@/utils/supabase/auth';
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth();
-
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');
 
     if (!projectId) return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
+
+    await requireProjectAuth(projectId);
 
     const facts = await prisma.knowledgeBaseFact.findMany({
       where: { projectId },
@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ facts });
   } catch (err: any) {
+    if (err.message.includes('Forbidden')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (err.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
@@ -28,14 +29,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAuth();
-
     const json = await request.json();
     const { projectId, category, content, source } = json;
 
     if (!projectId || !category || !content) {
       return NextResponse.json({ error: 'projectId, category, and content are required' }, { status: 400 });
     }
+
+    await requireProjectAuth(projectId);
 
     const fact = await prisma.knowledgeBaseFact.create({
       data: {
@@ -48,6 +49,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ fact }, { status: 201 });
   } catch (err: any) {
+    if (err.message.includes('Forbidden')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (err.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

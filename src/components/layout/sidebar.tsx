@@ -23,12 +23,13 @@ import {
   AvatarImage,
 } from "@/components/ui/avatar"
 import { useGetMe } from "@workspace/api-client-react"
+import { logout } from "@/app/(auth)/actions"
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
 
 export function Sidebar({ className, ...props }: SidebarProps) {
   const location = usePathname()
-  const { data: user } = useGetMe()
+  const { data: user, isLoading, isError } = useGetMe()
 
   // Match current path to highlight active nav item
   const isActive = (path: string) => {
@@ -117,7 +118,15 @@ export function Sidebar({ className, ...props }: SidebarProps) {
       </div>
 
       <div className="mt-auto border-t border-sidebar-border p-4">
-        {user ? (
+        {isLoading ? (
+          <div className="animate-pulse flex items-center gap-3">
+            <div className="h-9 w-9 rounded-full bg-sidebar-accent" />
+            <div className="flex-1 space-y-2">
+              <div className="h-3 w-20 rounded bg-sidebar-accent" />
+              <div className="h-2 w-16 rounded bg-sidebar-accent" />
+            </div>
+          </div>
+        ) : user ? (
           <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9 border border-sidebar-border">
               <AvatarImage src={user.avatarUrl || ""} alt={user.name} />
@@ -129,17 +138,23 @@ export function Sidebar({ className, ...props }: SidebarProps) {
               <span className="truncate text-sm font-medium text-white">{user.name}</span>
               <span className="truncate text-xs text-sidebar-foreground/60 capitalize">{user.role.replace('_', ' ')}</span>
             </div>
-            <Link href="/login" className="text-sidebar-foreground/50 hover:text-white transition-colors" title="Log out">
-              <LogOut className="h-4 w-4" />
-            </Link>
+            <form action={logout}>
+              <button type="submit" className="text-sidebar-foreground/50 hover:text-white transition-colors" title="Log out">
+                <LogOut className="h-4 w-4" />
+              </button>
+            </form>
           </div>
         ) : (
-          <div className="animate-pulse flex items-center gap-3">
-            <div className="h-9 w-9 rounded-full bg-sidebar-accent" />
-            <div className="flex-1 space-y-2">
-              <div className="h-3 w-20 rounded bg-sidebar-accent" />
-              <div className="h-2 w-16 rounded bg-sidebar-accent" />
+          <div className="flex items-center gap-3">
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <span className="truncate text-sm font-medium text-red-400">Failed to load</span>
+              <span className="truncate text-xs text-sidebar-foreground/60">Please log out</span>
             </div>
+            <form action={logout}>
+              <button type="submit" className="text-sidebar-foreground/50 hover:text-white transition-colors" title="Log out">
+                <LogOut className="h-4 w-4" />
+              </button>
+            </form>
           </div>
         )}
       </div>

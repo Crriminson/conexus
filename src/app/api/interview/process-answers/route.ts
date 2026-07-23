@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/db';
 import { generate } from '@/lib/llmClient';
-import { requireAuth } from '@/utils/supabase/auth';
+import { requireProjectAuth } from '@/utils/supabase/auth';
 import { getAnswerProcessingPrompt } from '@/lib/prompts';
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAuth();
-
     const { projectId, qnaPairs } = await request.json();
 
     if (!projectId || !Array.isArray(qnaPairs) || qnaPairs.length === 0) {
       return NextResponse.json({ error: 'projectId and an array of qnaPairs are required' }, { status: 400 });
     }
+
+    await requireProjectAuth(projectId);
 
     // 1. Construct prompt
     const { systemPrompt, userPrompt } = getAnswerProcessingPrompt(qnaPairs);
@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Facts successfully extracted and saved", count: dataToInsert.length });
   } catch (err: any) {
     console.error("Process answers error:", err);
+    if (err.message.includes('Forbidden')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (err.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

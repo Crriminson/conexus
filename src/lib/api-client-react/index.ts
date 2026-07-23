@@ -1,9 +1,23 @@
+import { useQuery } from '@tanstack/react-query';
+
 const noop = (...args: any[]) => ({ mutateAsync: async (...args: any[]) => {}, mutate: (...args: any[]) => {}, isPending: false, isSuccess: false });
 const queryMock = (...args: any[]) => ({ data: null, isLoading: false, isSuccess: false });
 
 export const useLogin = noop;
 export const useRegister = noop;
-export const useGetMe = queryMock;
+
+export const useGetMe = () => {
+  return useQuery({
+    queryKey: ['me'],
+    queryFn: async () => {
+      const response = await fetch('/api/me');
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.json();
+    },
+  });
+};
 export const useGetProjectStats = queryMock;
 export const useListProjects = queryMock;
 export const useCreateProject = noop;
