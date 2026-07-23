@@ -1,4 +1,7 @@
-import { Link, useLocation } from "wouter"
+"use client";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+
 import {
   LayoutDashboard,
   FolderKanban,
@@ -24,7 +27,7 @@ import { useGetMe } from "@workspace/api-client-react"
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
 
 export function Sidebar({ className, ...props }: SidebarProps) {
-  const [location] = useLocation()
+  const location = usePathname()
   const { data: user } = useGetMe()
 
   // Match current path to highlight active nav item

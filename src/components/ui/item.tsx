@@ -1,7 +1,8 @@
+"use client";
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 function ItemGroup({ className, ...props }: React.ComponentProps<'div'>) {

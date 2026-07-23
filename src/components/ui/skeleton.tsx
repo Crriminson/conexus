@@ -1,4 +1,5 @@
-import { cn } from '@/lib/utils';
+"use client";
+import { cn } from '@/utils/utils';
 
 function Skeleton({
   className,

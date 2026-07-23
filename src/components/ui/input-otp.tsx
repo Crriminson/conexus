@@ -1,5 +1,6 @@
+"use client";
 import * as React from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/utils';
 import { OTPInput, OTPInputContext } from 'input-otp';
 import { Minus } from 'lucide-react';
 

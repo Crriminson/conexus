@@ -1,6 +1,7 @@
+"use client";
 import { Slot } from '@radix-ui/react-slot';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 const buttonGroupVariants = cva(
