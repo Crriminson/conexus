@@ -1,70 +1,36 @@
 "use client";
-import { useState } from "react"
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { ActivitySquare, Loader2 } from "lucide-react";
 
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { ActivitySquare, Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { login } from "../actions";
+import { useFormStatus } from "react-dom";
+import { Suspense } from "react";
 
-import { Button } from "@/components/ui/button"
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
-import { useToast } from "@/hooks/use-toast"
-import { useLogin } from "@workspace/api-client-react"
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" className="w-full h-11" disabled={pending}>
+      {pending ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Signing in...
+        </>
+      ) : (
+        "Sign in"
+      )}
+    </Button>
+  );
+}
 
-const loginSchema = z.object({
-  email: z.string().email({ message: "Invalid email address" }),
-  password: z.string().min(1, { message: "Password is required" }),
-  rememberMe: z.boolean().default(false),
-})
-
-type LoginFormValues = z.infer<typeof loginSchema>
-
-export default function LoginPage() {
-  const _ = usePathname();
-  const router = useRouter();
-  const setLocation = (path) => router.push(path)
-  const { toast } = useToast()
-  
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-      rememberMe: false,
-    },
-  })
-
-  const loginMutation = useLogin()
-
-  function onSubmit(data: LoginFormValues) {
-    loginMutation.mutate({ data }, {
-      onSuccess: () => {
-        toast({
-          title: "Login successful",
-          description: "Welcome back to Conexus.",
-        })
-        setLocation("/dashboard")
-      },
-      onError: (error: any) => {
-        toast({
-          title: "Login failed",
-          description: error?.message || "Please check your credentials and try again.",
-          variant: "destructive",
-        })
-      }
-    })
-  }
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const error = searchParams.get("error");
+  const message = searchParams.get("message");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 sm:px-6 lg:px-8">
@@ -84,79 +50,69 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-8">
-            <div className="space-y-4">
-              <FormField
-                control={form.control}
+        {error && (
+          <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+            {error}
+          </div>
+        )}
+
+        {message && (
+          <div className="rounded-md bg-green-50 p-3 text-sm text-green-700 border border-green-200">
+            {message}
+          </div>
+        )}
+
+        <form action={login} className="space-y-6 mt-8">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email address</Label>
+              <Input
+                id="email"
                 name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email address</FormLabel>
-                    <FormControl>
-                      <Input placeholder="you@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                type="email"
+                placeholder="you@example.com"
+                required
               />
+            </div>
 
-              <FormField
-                control={form.control}
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
                 name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                type="password"
+                placeholder="••••••••"
+                required
               />
             </div>
+          </div>
 
-            <div className="flex items-center justify-between">
-              <FormField
-                control={form.control}
-                name="rememberMe"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                        Remember me
-                      </FormLabel>
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              <div className="text-sm">
-                <Link href="/forgot-password" className="font-medium text-primary hover:text-primary/80">
-                  Forgot your password?
-                </Link>
-              </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Checkbox id="rememberMe" name="rememberMe" />
+              <Label htmlFor="rememberMe" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Remember me
+              </Label>
             </div>
 
-            <Button type="submit" className="w-full h-11" disabled={loginMutation.isPending}>
-              {loginMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                "Sign in"
-              )}
-            </Button>
-          </form>
-        </Form>
+            <div className="text-sm">
+              <Link href="/forgot-password" className="font-medium text-primary hover:text-primary/80">
+                Forgot your password?
+              </Link>
+            </div>
+          </div>
+
+          <SubmitButton />
+        </form>
       </div>
     </div>
-  )
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
 }

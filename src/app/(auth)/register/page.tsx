@@ -1,78 +1,51 @@
 "use client";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { ActivitySquare, Loader2 } from "lucide-react";
 
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { ActivitySquare, Loader2 } from "lucide-react"
-
-import { Button } from "@/components/ui/button"
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { useToast } from "@/hooks/use-toast"
-import { useRegister } from "@workspace/api-client-react"
-import { RegisterInputRole } from "@workspace/api-client-react"
+} from "@/components/ui/select";
+import { signup } from "../actions";
+import { useFormStatus } from "react-dom";
+import { Suspense, useState } from "react";
 
-const registerSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  email: z.string().email({ message: "Invalid email address" }),
-  password: z.string().min(8, { message: "Password must be at least 8 characters" }),
-  role: z.nativeEnum(RegisterInputRole),
-})
+const ROLES = [
+  { value: "ApplicantCompany", label: "Applicant Company" },
+  { value: "MerchantBanker", label: "Merchant Banker" },
+  { value: "CharteredAccountant", label: "Chartered Accountant" },
+  { value: "CompanySecretary", label: "Company Secretary" },
+  { value: "LegalAdvisor", label: "Legal Advisor" },
+  { value: "Underwriter", label: "Underwriter" },
+] as const;
 
-type RegisterFormValues = z.infer<typeof registerSchema>
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" className="w-full h-11" disabled={pending}>
+      {pending ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Creating account...
+        </>
+      ) : (
+        "Register"
+      )}
+    </Button>
+  );
+}
 
-export default function RegisterPage() {
-  const _ = usePathname();
-  const router = useRouter();
-  const setLocation = (path) => router.push(path)
-  const { toast } = useToast()
-  
-  const form = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      password: "",
-      role: RegisterInputRole.company,
-    },
-  })
-
-  const registerMutation = useRegister()
-
-  function onSubmit(data: RegisterFormValues) {
-    registerMutation.mutate({ data }, {
-      onSuccess: () => {
-        toast({
-          title: "Registration successful",
-          description: "Welcome to Conexus.",
-        })
-        setLocation("/dashboard")
-      },
-      onError: (error: any) => {
-        toast({
-          title: "Registration failed",
-          description: error?.message || "There was a problem creating your account.",
-          variant: "destructive",
-        })
-      }
-    })
-  }
+function RegisterForm() {
+  const searchParams = useSearchParams();
+  const error = searchParams.get("error");
+  const [role, setRole] = useState("ApplicantCompany");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 sm:px-6 lg:px-8">
@@ -92,89 +65,78 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-8">
-            <div className="space-y-4">
-              <FormField
-                control={form.control}
+        {error && (
+          <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+            {error}
+          </div>
+        )}
+
+        <form action={signup} className="space-y-6 mt-8">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
                 name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Jane Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email address</FormLabel>
-                    <FormControl>
-                      <Input placeholder="you@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Role</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a role" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value={RegisterInputRole.company}>Company Representative</SelectItem>
-                        <SelectItem value={RegisterInputRole.merchant_banker}>Merchant Banker</SelectItem>
-                        <SelectItem value={RegisterInputRole.legal}>Legal Counsel</SelectItem>
-                        <SelectItem value={RegisterInputRole.auditor}>Auditor</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                type="text"
+                placeholder="Jane Doe"
+                required
+                minLength={2}
               />
             </div>
 
-            <Button type="submit" className="w-full h-11" disabled={registerMutation.isPending}>
-              {registerMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating account...
-                </>
-              ) : (
-                "Register"
-              )}
-            </Button>
-          </form>
-        </Form>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email address</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                placeholder="••••••••"
+                required
+                minLength={8}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <input type="hidden" name="role" value={role} />
+              <Select value={role} onValueChange={setRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLES.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>
+                      {r.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <SubmitButton />
+        </form>
       </div>
     </div>
-  )
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterForm />
+    </Suspense>
+  );
 }

@@ -1,10 +1,222 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Conexus IPO Compliance Platform — Prisma Schema
+// https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ApplicantCompany
+  MerchantBanker
+  CharteredAccountant
+  CompanySecretary
+  LegalAdvisor
+  Underwriter
+}
+
+enum DocumentStatus {
+  Draft
+  Uploaded
+  Validated
+  Approved
+  Rejected
+}
+
+enum GapSeverity {
+  Low
+  Medium
+  High
+  Critical
+}
+
+enum ExportFormat {
+  PDF
+  DOCX
+  XLSX
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  avatarUrl String?
+  role      UserRole
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  projectMemberships ProjectMember[]
+  reviewComments     ReviewComment[]
+
+  @@map("users")
+}
+
+// ─── Project ──────────────────────────────────────────────────────────────────
+
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  companyName String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  members           ProjectMember[]
+  documents         Document[]
+  knowledgeBaseFacts KnowledgeBaseFact[]
+  drhpSections      DRHPSection[]
+  validationResults ValidationResult[]
+  gapFlags          GapFlag[]
+  reviewComments    ReviewComment[]
+  exportArtifacts   ExportArtifact[]
+
+  @@map("projects")
+}
+
+// ─── Join: User ↔ Project ─────────────────────────────────────────────────────
+
+model ProjectMember {
+  id        String   @id @default(uuid())
+  role      UserRole
+  joinedAt  DateTime @default(now())
+
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@map("project_members")
+}
+
+// ─── Document ─────────────────────────────────────────────────────────────────
+
+model Document {
+  id        String         @id @default(uuid())
+  title     String
+  fileUrl   String
+  mimeType  String?
+  status    DocumentStatus @default(Draft)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+// ─── Knowledge Base Fact ──────────────────────────────────────────────────────
+
+model KnowledgeBaseFact {
+  id        String   @id @default(uuid())
+  category  String
+  content   String
+  source    String?
+  createdAt DateTime @default(now())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("knowledge_base_facts")
+}
+
+// ─── DRHP Section ─────────────────────────────────────────────────────────────
+
+model DRHPSection {
+  id           String   @id @default(uuid())
+  title        String
+  sectionOrder Int
+  content      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Relations
+  validationResults ValidationResult[]
+  gapFlags          GapFlag[]
+
+  @@map("drhp_sections")
+}
+
+// ─── Validation Result ────────────────────────────────────────────────────────
+
+model ValidationResult {
+  id        String   @id @default(uuid())
+  rule      String
+  passed    Boolean
+  message   String?
+  createdAt DateTime @default(now())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  sectionId String?
+  section   DRHPSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+
+  @@map("validation_results")
+}
+
+// ─── Gap Flag ─────────────────────────────────────────────────────────────────
+
+model GapFlag {
+  id          String      @id @default(uuid())
+  title       String
+  description String
+  severity    GapSeverity @default(Medium)
+  resolved    Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  sectionId String?
+  section   DRHPSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+
+  @@map("gap_flags")
+}
+
+// ─── Review Comment ───────────────────────────────────────────────────────────
+
+model ReviewComment {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("review_comments")
+}
+
+// ─── Export Artifact ──────────────────────────────────────────────────────────
+
+model ExportArtifact {
+  id        String       @id @default(uuid())
+  title     String
+  format    ExportFormat
+  fileUrl   String
+  createdAt DateTime     @default(now())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("export_artifacts")
 }
