@@ -1,0 +1,233 @@
+/**
+ * Conexus LLM Client
+ *
+ * Unified interface for AI text generation.
+ * - Primary: Google Gemini (supports text + multimodal)
+ * - Fallback: Groq / Llama (text-only, used on Gemini 429/5xx)
+ *
+ * Usage:
+ *   import { generate } from '@/lib/llmClient';
+ *   const result = await generate('Summarize this document');
+ *   const result = await generate('Describe this image', {
+ *     media: [{ mimeType: 'image/png', data: base64String }],
+ *   });
+ */
+
+import { GoogleGenAI, type Content } from '@google/genai';
+import Groq from 'groq-sdk';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface MediaInput {
+  /** MIME type, e.g. 'image/png', 'application/pdf' */
+  mimeType: string;
+  /** Base64-encoded file data */
+  data: string;
+}
+
+export interface GenerateOptions {
+  /** Gemini model to use (default: gemini-2.0-flash) */
+  geminiModel?: string;
+  /** Groq model to use (default: llama-3.3-70b-versatile) */
+  groqModel?: string;
+  /** Multimodal attachments — images, PDFs. Gemini-only. */
+  media?: MediaInput[];
+  /** System instruction prepended to the conversation */
+  systemPrompt?: string;
+  /** Sampling temperature (0–2) */
+  temperature?: number;
+  /** Max output tokens */
+  maxTokens?: number;
+  /** If true, skip fallback and only use Gemini */
+  geminiOnly?: boolean;
+}
+
+export interface GenerateResult {
+  /** The generated text */
+  text: string;
+  /** Which provider produced the result */
+  provider: 'gemini' | 'groq';
+  /** The model ID that was used */
+  model: string;
+}
+
+// ─── Clients (lazy singletons) ────────────────────────────────────────────────
+
+let _gemini: GoogleGenAI | null = null;
+let _groq: Groq | null = null;
+
+function getGemini(): GoogleGenAI {
+  if (!_gemini) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error('Missing GEMINI_API_KEY environment variable');
+    _gemini = new GoogleGenAI({ apiKey });
+  }
+  return _gemini;
+}
+
+function getGroq(): Groq {
+  if (!_groq) {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) throw new Error('Missing GROQ_API_KEY environment variable');
+    _groq = new Groq({ apiKey });
+  }
+  return _groq;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function isRetryable(error: any): boolean {
+  const status = error?.status ?? error?.statusCode ?? error?.code;
+  if (status === 429) return true;
+  if (typeof status === 'number' && status >= 500) return true;
+  // Google GenAI SDK sometimes wraps errors differently
+  const message = String(error?.message ?? '');
+  if (message.includes('429') || message.includes('RESOURCE_EXHAUSTED')) return true;
+  if (message.includes('500') || message.includes('503') || message.includes('INTERNAL')) return true;
+  return false;
+}
+
+function hasMedia(opts?: GenerateOptions): boolean {
+  return !!opts?.media && opts.media.length > 0;
+}
+
+// ─── Gemini Call ──────────────────────────────────────────────────────────────
+
+async function callGemini(prompt: string, opts: GenerateOptions = {}): Promise<GenerateResult> {
+  const gemini = getGemini();
+  const model = opts.geminiModel ?? 'gemini-2.0-flash';
+
+  // Build parts array
+  const parts: any[] = [];
+
+  // Add media attachments
+  if (opts.media) {
+    for (const m of opts.media) {
+      parts.push({
+        inlineData: {
+          mimeType: m.mimeType,
+          data: m.data,
+        },
+      });
+    }
+  }
+
+  // Add text prompt
+  parts.push({ text: prompt });
+
+  const config: any = {};
+  if (opts.temperature !== undefined) config.temperature = opts.temperature;
+  if (opts.maxTokens !== undefined) config.maxOutputTokens = opts.maxTokens;
+  if (opts.systemPrompt) config.systemInstruction = opts.systemPrompt;
+
+  const response = await gemini.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts }],
+    config,
+  });
+
+  const text = response.text ?? '';
+
+  return { text, provider: 'gemini', model };
+}
+
+// ─── Groq Call ────────────────────────────────────────────────────────────────
+
+async function callGroq(prompt: string, opts: GenerateOptions = {}): Promise<GenerateResult> {
+  const groq = getGroq();
+  const model = opts.groqModel ?? 'llama-3.3-70b-versatile';
+
+  const messages: Groq.Chat.ChatCompletionMessageParam[] = [];
+
+  if (opts.systemPrompt) {
+    messages.push({ role: 'system', content: opts.systemPrompt });
+  }
+
+  messages.push({ role: 'user', content: prompt });
+
+  const completion = await groq.chat.completions.create({
+    model,
+    messages,
+    temperature: opts.temperature ?? 0.7,
+    max_tokens: opts.maxTokens ?? 4096,
+  });
+
+  const text = completion.choices[0]?.message?.content ?? '';
+
+  return { text, provider: 'groq', model };
+}
+
+// ─── Main Entry Point ─────────────────────────────────────────────────────────
+
+/**
+ * Generate text using Gemini (primary) with Groq fallback.
+ *
+ * - Text-only: tries Gemini first, falls back to Groq on 429/5xx.
+ * - Multimodal (media attached): Gemini only, throws on failure.
+ */
+export async function generate(
+  prompt: string,
+  opts: GenerateOptions = {}
+): Promise<GenerateResult> {
+  const isMultimodal = hasMedia(opts);
+
+  try {
+    return await callGemini(prompt, opts);
+  } catch (geminiError: any) {
+    // If multimodal was requested, we cannot fall back to Groq
+    if (isMultimodal) {
+      throw new Error(
+        `Gemini failed on multimodal request and no fallback is available for media inputs. ` +
+        `Original error: ${geminiError?.message ?? geminiError}`
+      );
+    }
+
+    // If explicitly Gemini-only, don't fallback
+    if (opts.geminiOnly) {
+      throw geminiError;
+    }
+
+    // Only fallback on rate-limit or server errors
+    if (!isRetryable(geminiError)) {
+      throw geminiError;
+    }
+
+    console.warn(
+      `[llmClient] Gemini failed (${geminiError?.message ?? 'unknown'}), falling back to Groq`
+    );
+
+    return await callGroq(prompt, opts);
+  }
+}
+
+// ─── Health Check ─────────────────────────────────────────────────────────────
+
+/**
+ * Quick connectivity test for both providers.
+ * Returns status for each — does NOT throw on individual failures.
+ */
+export async function healthCheck(): Promise<{
+  gemini: { ok: boolean; message: string };
+  groq: { ok: boolean; message: string };
+}> {
+  const testPrompt = 'Reply with exactly: OK';
+
+  let geminiResult = { ok: false, message: '' };
+  let groqResult = { ok: false, message: '' };
+
+  try {
+    const g = await callGemini(testPrompt, { maxTokens: 10 });
+    geminiResult = { ok: true, message: `Model: ${g.model}, Response: ${g.text.slice(0, 50)}` };
+  } catch (e: any) {
+    geminiResult = { ok: false, message: e?.message ?? String(e) };
+  }
+
+  try {
+    const q = await callGroq(testPrompt, { maxTokens: 10 });
+    groqResult = { ok: true, message: `Model: ${q.model}, Response: ${q.text.slice(0, 50)}` };
+  } catch (e: any) {
+    groqResult = { ok: false, message: e?.message ?? String(e) };
+  }
+
+  return { gemini: geminiResult, groq: groqResult };
+}

@@ -106,6 +106,7 @@ model Document {
   title     String
   fileUrl   String
   mimeType  String?
+  sizeBytes Int?
   status    DocumentStatus @default(Draft)
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt

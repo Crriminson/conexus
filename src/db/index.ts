@@ -1,10 +1,11 @@
+import { Pool } from 'pg';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
 const prismaClientSingleton = () => {
-  return new PrismaClient({
-    // The application should use the pooled connection (6543)
-    datasourceUrl: process.env.DATABASE_URL,
-  });
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const adapter = new PrismaPg(pool);
+  return new PrismaClient({ adapter });
 };
 
 type PrismaClientSingleton = ReturnType<typeof prismaClientSingleton>;
