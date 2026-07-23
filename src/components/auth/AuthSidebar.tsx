@@ -52,7 +52,7 @@ export function AuthSidebar() {
       </div>
       
       <div className="relative z-10 max-w-lg">
-        <div className="h-[200px] relative">
+        <div className="h-[280px] relative">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentSlide}
