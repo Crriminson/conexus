@@ -79,9 +79,9 @@ export default function LandingPage() {
             </div>
             <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-4xl">
               <dl className="grid max-w-xl grid-cols-1 gap-x-8 gap-y-10 lg:max-w-none lg:grid-cols-2 lg:gap-y-16">
-                <div className="relative pl-16">
+                <div className="relative pl-16 p-6 rounded-2xl transition-all duration-300 hover:bg-white hover:shadow-xl hover:-translate-y-1 border border-transparent hover:border-slate-100">
                   <dt className="text-base font-semibold leading-7 text-slate-900">
-                    <div className="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <div className="absolute left-6 top-6 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20">
                       <Layers className="h-6 w-6 text-primary" />
                     </div>
                     Structured Knowledge Base
@@ -90,9 +90,9 @@ export default function LandingPage() {
                     Centralize company data, financials, and legal information in a structured format rather than scattered documents.
                   </dd>
                 </div>
-                <div className="relative pl-16">
+                <div className="relative pl-16 p-6 rounded-2xl transition-all duration-300 hover:bg-white hover:shadow-xl hover:-translate-y-1 border border-transparent hover:border-slate-100">
                   <dt className="text-base font-semibold leading-7 text-slate-900">
-                    <div className="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <div className="absolute left-6 top-6 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20">
                       <FileText className="h-6 w-6 text-primary" />
                     </div>
                     Live Document Generation
@@ -101,9 +101,9 @@ export default function LandingPage() {
                     See your Offer Document take shape in real-time as you complete structured forms. No more formatting nightmares.
                   </dd>
                 </div>
-                <div className="relative pl-16">
+                <div className="relative pl-16 p-6 rounded-2xl transition-all duration-300 hover:bg-white hover:shadow-xl hover:-translate-y-1 border border-transparent hover:border-slate-100">
                   <dt className="text-base font-semibold leading-7 text-slate-900">
-                    <div className="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <div className="absolute left-6 top-6 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20">
                       <ShieldCheck className="h-6 w-6 text-primary" />
                     </div>
                     Automated Validation
@@ -112,9 +112,9 @@ export default function LandingPage() {
                     Run comprehensive checks against regulatory requirements to catch missing fields, data inconsistencies, and compliance gaps early.
                   </dd>
                 </div>
-                <div className="relative pl-16">
+                <div className="relative pl-16 p-6 rounded-2xl transition-all duration-300 hover:bg-white hover:shadow-xl hover:-translate-y-1 border border-transparent hover:border-slate-100">
                   <dt className="text-base font-semibold leading-7 text-slate-900">
-                    <div className="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <div className="absolute left-6 top-6 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20">
                       <ActivitySquare className="h-6 w-6 text-primary" />
                     </div>
                     Readiness Tracking
@@ -139,29 +139,29 @@ export default function LandingPage() {
             
             <div className="mx-auto max-w-5xl">
               <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
-                <div className="flex flex-col items-center text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mb-4">
+                <div className="group flex flex-col items-center text-center p-6 rounded-2xl bg-white shadow-sm border border-slate-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-2 hover:border-primary/20 cursor-default">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mb-4 transition-transform duration-300 group-hover:scale-110 group-hover:bg-primary group-hover:text-white">
                     <CheckCircle className="h-8 w-8" />
                   </div>
                   <h3 className="text-lg font-semibold text-slate-900 mb-2">1. Eligibility</h3>
                   <p className="text-sm text-slate-600">Assess exchange requirements and financial thresholds upfront.</p>
                 </div>
-                <div className="flex flex-col items-center text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mb-4">
+                <div className="group flex flex-col items-center text-center p-6 rounded-2xl bg-white shadow-sm border border-slate-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-2 hover:border-primary/20 cursor-default">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mb-4 transition-transform duration-300 group-hover:scale-110 group-hover:bg-primary group-hover:text-white">
                     <Upload className="h-8 w-8" />
                   </div>
                   <h3 className="text-lg font-semibold text-slate-900 mb-2">2. Data Extraction</h3>
                   <p className="text-sm text-slate-600">Upload source documents and populate the structured knowledge base.</p>
                 </div>
-                <div className="flex flex-col items-center text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mb-4">
+                <div className="group flex flex-col items-center text-center p-6 rounded-2xl bg-white shadow-sm border border-slate-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-2 hover:border-primary/20 cursor-default">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mb-4 transition-transform duration-300 group-hover:scale-110 group-hover:bg-primary group-hover:text-white">
                     <FileText className="h-8 w-8" />
                   </div>
                   <h3 className="text-lg font-semibold text-slate-900 mb-2">3. Drafting</h3>
                   <p className="text-sm text-slate-600">Collaboratively draft document sections with live preview.</p>
                 </div>
-                <div className="flex flex-col items-center text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mb-4">
+                <div className="group flex flex-col items-center text-center p-6 rounded-2xl bg-white shadow-sm border border-slate-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-2 hover:border-primary/20 cursor-default">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mb-4 transition-transform duration-300 group-hover:scale-110 group-hover:bg-primary group-hover:text-white">
                     <ShieldCheck className="h-8 w-8" />
                   </div>
                   <h3 className="text-lg font-semibold text-slate-900 mb-2">4. Validation</h3>
