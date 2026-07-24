@@ -1,7 +1,7 @@
 /**
  * Generates the prompt and system instructions for the AI Interview question generation flow.
  * 
- * @param facts - An array of existing KnowledgeBaseFact objects
+ * @param facts - An array of existing KnowledgeBaseEntry objects
  * @returns { systemPrompt, userPrompt }
  */
 export function getInterviewGenerationPrompt(facts: { category: string; content: string }[]) {

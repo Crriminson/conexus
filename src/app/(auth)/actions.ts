@@ -4,14 +4,14 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { prisma } from '@/db';
 
-// Maps form role values to Prisma UserRole enum
-const ROLE_MAP: Record<string, 'ApplicantCompany' | 'MerchantBanker' | 'CharteredAccountant' | 'CompanySecretary' | 'LegalAdvisor' | 'Underwriter'> = {
-  ApplicantCompany: 'ApplicantCompany',
-  MerchantBanker: 'MerchantBanker',
-  CharteredAccountant: 'CharteredAccountant',
-  CompanySecretary: 'CompanySecretary',
-  LegalAdvisor: 'LegalAdvisor',
-  Underwriter: 'Underwriter',
+// Maps form role values to Prisma ProjectRole enum
+const ROLE_MAP: Record<string, 'APPLICANT_COMPANY' | 'MERCHANT_BANKER' | 'CHARTERED_ACCOUNTANT' | 'COMPANY_SECRETARY' | 'LEGAL_ADVISOR' | 'UNDERWRITER'> = {
+  ApplicantCompany: 'APPLICANT_COMPANY',
+  MerchantBanker: 'MERCHANT_BANKER',
+  CharteredAccountant: 'CHARTERED_ACCOUNTANT',
+  CompanySecretary: 'COMPANY_SECRETARY',
+  LegalAdvisor: 'LEGAL_ADVISOR',
+  Underwriter: 'UNDERWRITER',
 };
 
 export async function login(formData: FormData) {

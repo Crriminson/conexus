@@ -11,15 +11,47 @@ datasource db {
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
-enum UserRole {
-  ApplicantCompany
-  MerchantBanker
-  CharteredAccountant
-  CompanySecretary
-  LegalAdvisor
-  Underwriter
+enum ProjectRole {
+  APPLICANT_COMPANY
+  MERCHANT_BANKER
+  CHARTERED_ACCOUNTANT
+  COMPANY_SECRETARY
+  LEGAL_ADVISOR
+  UNDERWRITER
 }
 
+enum MemberStatus {
+  INVITED
+  ACTIVE
+}
+
+enum SectionCategory {
+  COMPANY_PROFILE
+  FINANCIAL
+  LEGAL_RISK
+  SECRETARIAL_COMPLIANCE
+  BUSINESS_OFFER
+}
+
+enum SectionStatus {
+  DRAFT
+  SUBMITTED_FOR_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+}
+
+enum ValidationSource {
+  GAP_DETECTION
+  VALIDATION_ENGINE
+}
+
+enum ValidationStatus {
+  PASS
+  FAIL
+  FLAGGED_FOR_REVIEW
+}
+
+// Preserved from old schema
 enum DocumentStatus {
   Draft
   Uploaded
@@ -41,183 +73,210 @@ enum ExportFormat {
   XLSX
 }
 
-// ─── User ─────────────────────────────────────────────────────────────────────
+// ─── Models ───────────────────────────────────────────────────────────────────
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  avatarUrl String?
-  role      UserRole
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  projectMemberships ProjectMember[]
-  reviewComments     ReviewComment[]
-
-  @@map("users")
+  id            String          @id @default(cuid())
+  email         String          @unique
+  name          String
+  avatarUrl     String?         // preserved
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt // preserved
+  memberships   ProjectMember[]
+  notifications Notification[]
 }
-
-// ─── Project ──────────────────────────────────────────────────────────────────
 
 model Project {
-  id          String   @id @default(uuid())
-  name        String
-  companyName String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  members           ProjectMember[]
-  documents         Document[]
-  knowledgeBaseFacts KnowledgeBaseFact[]
-  drhpSections      DRHPSection[]
-  validationResults ValidationResult[]
-  gapFlags          GapFlag[]
-  reviewComments    ReviewComment[]
-  exportArtifacts   ExportArtifact[]
-
-  @@map("projects")
+  id             String               @id @default(cuid())
+  name           String
+  companyName    String               // preserved
+  description    String?              // preserved
+  ownerId        String
+  status         String               @default("active")
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt // preserved
+  members        ProjectMember[]
+  companyProfile CompanyProfile?
+  documents      Document[]
+  sections       DRHPSection[]
+  knowledgeBase  KnowledgeBaseEntry[]
+  gapFlags       GapFlag[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  exportArtifacts ExportArtifact[]    // preserved
 }
-
-// ─── Join: User ↔ Project ─────────────────────────────────────────────────────
 
 model ProjectMember {
-  id        String   @id @default(uuid())
-  role      UserRole
-  joinedAt  DateTime @default(now())
-
-  userId    String
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id        String       @id @default(cuid())
   projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  role      ProjectRole
+  status    MemberStatus @default(INVITED)
+  invitedAt DateTime     @default(now())
+  joinedAt  DateTime?
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, projectId])
-  @@map("project_members")
+  @@unique([projectId, userId, role])
 }
 
-// ─── Document ─────────────────────────────────────────────────────────────────
+model CompanyProfile {
+  id                String   @id @default(cuid())
+  projectId         String   @unique
+  companyName       String
+  cin               String
+  incorporationDate DateTime
+  registeredOffice  String
+  sector            String
+  promoters         Json
+  capitalStructure  Json
+  pan               String
+  gstin             String?
+  fiscalYearEnd     String
+  website           String?
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
 
 model Document {
-  id        String         @id @default(uuid())
-  title     String
-  fileUrl   String
-  mimeType  String?
-  sizeBytes Int?
-  status    DocumentStatus @default(Draft)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@map("documents")
+  id           String         @id @default(cuid())
+  title        String         // preserved
+  projectId    String
+  uploadedById String
+  fileUrl      String
+  fileType     String
+  mimeType     String?        // preserved
+  sizeBytes    Int?           // preserved
+  category     String
+  status       DocumentStatus @default(Draft) // preserved
+  ocrStatus    String         @default("pending")
+  ocrExtracted Json?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt // preserved
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
-// ─── Knowledge Base Fact ──────────────────────────────────────────────────────
-
-model KnowledgeBaseFact {
-  id        String   @id @default(uuid())
-  category  String
-  content   String
-  source    String?
-  createdAt DateTime @default(now())
-
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@map("knowledge_base_facts")
+model KnowledgeBaseEntry {
+  id          String   @id @default(cuid())
+  projectId   String
+  sourceType  String   // company_profile | ocr | interview | manual
+  sourceRefId String?
+  fieldKey    String
+  fieldValue  String
+  confidence  Float?
+  category    String?  // preserved from old schema so it doesn't break knowledge-base.tsx
+  content     String?  // preserved from old schema so it doesn't break knowledge-base.tsx
+  createdAt   DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
-
-// ─── DRHP Section ─────────────────────────────────────────────────────────────
 
 model DRHPSection {
-  id           String   @id @default(uuid())
-  title        String
-  sectionOrder Int
-  content      String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                   String               @id @default(cuid())
+  title                String               // preserved
+  sectionOrder         Int                  // preserved
+  projectId            String
+  sectionKey           String
+  category             SectionCategory
+  content              String
+  status               SectionStatus        @default(DRAFT)
+  assignedReviewerRole ProjectRole?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  project              Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versions             DRHPSectionVersion[]
+  validationResults    ValidationResult[]
+  gapFlags             GapFlag[]            // preserved
 
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  // Relations
-  validationResults ValidationResult[]
-  gapFlags          GapFlag[]
-
-  @@map("drhp_sections")
+  @@unique([projectId, sectionKey])
 }
 
-// ─── Validation Result ────────────────────────────────────────────────────────
+model DRHPSectionVersion {
+  id          String        @id @default(cuid())
+  sectionId   String
+  content     String
+  status      SectionStatus
+  createdById String
+  reviewRound Int
+  reviewerId  String?
+  reviewNotes String?
+  createdAt   DateTime      @default(now())
+  section     DRHPSection   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+}
 
 model ValidationResult {
-  id        String   @id @default(uuid())
-  rule      String
-  passed    Boolean
-  message   String?
-  createdAt DateTime @default(now())
-
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  sectionId String?
-  section   DRHPSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-
-  @@map("validation_results")
+  id                String            @id @default(cuid())
+  sectionId         String?           // target made it String, old had String? I'll keep it as String? for safety? No, target is String, but relation was optional. Let's make it String? to preserve `SetNull`.
+  source            ValidationSource
+  status            ValidationStatus
+  confidenceScore   Float?
+  matchedRegulation String?
+  explanation       String?
+  rule              String?           // preserved
+  passed            Boolean?          // preserved
+  message           String?           // preserved
+  createdAt         DateTime          @default(now())
+  section           DRHPSection?      @relation(fields: [sectionId], references: [id], onDelete: SetNull) // preserved
 }
-
-// ─── Gap Flag ─────────────────────────────────────────────────────────────────
 
 model GapFlag {
-  id          String      @id @default(uuid())
-  title       String
-  description String
-  severity    GapSeverity @default(Medium)
-  resolved    Boolean     @default(false)
+  id          String      @id @default(cuid())
+  projectId   String
+  sectionKey  String
+  missingItem String
+  status      String      @default("open")
+  title       String?     // preserved
+  description String?     // preserved
+  severity    GapSeverity @default(Medium) // preserved
+  resolved    Boolean     @default(false)  // preserved
   createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  sectionId String?
-  section   DRHPSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-
-  @@map("gap_flags")
+  updatedAt   DateTime    @updatedAt       // preserved
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sectionId   String?     // preserved
+  section     DRHPSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull) // preserved
 }
 
-// ─── Review Comment ───────────────────────────────────────────────────────────
-
-model ReviewComment {
-  id        String   @id @default(uuid())
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  authorId String
-  author   User @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  @@map("review_comments")
+model Notification {
+  id              String   @id @default(cuid())
+  userId          String
+  projectId       String
+  type            String
+  message         String
+  relatedEntityId String?
+  readStatus      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
-// ─── Export Artifact ──────────────────────────────────────────────────────────
+model AuditLog {
+  id         String   @id @default(cuid())
+  projectId  String
+  actorId    String
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// Phase 2 — model only, not wired up yet
+model BlockchainRecord {
+  id               String   @id @default(cuid())
+  sectionVersionId String?
+  documentHash     String
+  txHash           String
+  chain            String
+  blockNumber      Int?
+  status           String
+  createdAt        DateTime @default(now())
+}
 
 model ExportArtifact {
-  id        String       @id @default(uuid())
+  id        String       @id @default(cuid())
   title     String
   format    ExportFormat
   fileUrl   String
   createdAt DateTime     @default(now())
-
   projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@map("export_artifacts")
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
