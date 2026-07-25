@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { prisma } from '@/db';
 import { requireProjectAuth } from '@/utils/supabase/auth';
+import { inngest } from '@/lib/inngest';
 
 const ALLOWED_TYPES = [
   'application/pdf',
@@ -20,10 +21,13 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null;
     const projectId = formData.get('projectId') as string | null;
 
+    const category = formData.get('category') as string || 'OTHER';
+    const fileType = formData.get('fileType') as string || 'General';
+
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     if (!projectId) return NextResponse.json({ error: 'No projectId provided' }, { status: 400 });
 
-    await requireProjectAuth(projectId);
+    const { user } = await requireProjectAuth(projectId);
 
     // Validate file
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -74,11 +78,19 @@ export async function POST(request: NextRequest) {
       data: {
         title: file.name,
         fileUrl: urlData.publicUrl,
+        fileType,
         mimeType: file.type,
         sizeBytes: file.size,
+        category,
         status: 'Uploaded',
         projectId,
+        uploadedById: user.id,
       },
+    });
+
+    await inngest.send({
+      name: "document.uploaded",
+      data: { documentId: document.id, projectId },
     });
 
     return NextResponse.json({ document }, { status: 201 });

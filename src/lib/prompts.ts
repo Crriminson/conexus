@@ -51,3 +51,16 @@ Do NOT wrap the response in markdown blocks (\`\`\`json).`;
 
   return { systemPrompt, userPrompt };
 }
+
+export function getCopilotSystemPrompt(facts: { category: string; fieldKey: string; fieldValue: string; content: string }[]) {
+  let factsContext = "The Knowledge Base is currently empty.";
+  if (facts.length > 0) {
+    factsContext = "Current Knowledge Base Context:\n" + facts.map(f => `[${f.category}] ${f.fieldKey}: ${f.fieldValue || f.content}`).join("\n");
+  }
+  return `You are an AI Copilot assisting with DRHP preparation.
+Use the following context to answer the user's question.
+If the context does not contain the answer, say so.
+
+${factsContext}`;
+}
+

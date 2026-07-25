@@ -1,4 +1,5 @@
-import { ProjectRole, SectionCategory } from '@prisma/client';
+import { ProjectRole, SectionCategory, ProjectMember } from '@prisma/client';
+import { requireProjectAuth } from '@/utils/supabase/auth';
 
 export type CategoryPermissions = {
   view: boolean;
@@ -107,4 +108,24 @@ export function canInvite(role: ProjectRole): boolean {
 
 export function canExport(role: ProjectRole): boolean {
   return PERMISSION_MATRIX[role].global.canExport;
+}
+
+export function getRolesWithGlobalPermission(permission: keyof GlobalPermissions): ProjectRole[] {
+  return (Object.keys(PERMISSION_MATRIX) as ProjectRole[]).filter(role => 
+    PERMISSION_MATRIX[role].global[permission]
+  );
+}
+
+export function getRolesWithCategoryPermission(category: SectionCategory, permission: keyof CategoryPermissions): ProjectRole[] {
+  return (Object.keys(PERMISSION_MATRIX) as ProjectRole[]).filter(role => 
+    PERMISSION_MATRIX[role].categories[category][permission]
+  );
+}
+
+export async function requireProjectRole(userId: string, projectId: string, allowedRoles: ProjectRole[]): Promise<ProjectMember> {
+  const { membership } = await requireProjectAuth(projectId);
+  if (membership.userId !== userId || !allowedRoles.includes(membership.role)) {
+    throw new Error('Forbidden');
+  }
+  return membership;
 }

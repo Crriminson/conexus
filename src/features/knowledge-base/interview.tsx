@@ -25,10 +25,9 @@ export function AIInterview({ projectId, onFactsUpdated }: AIInterviewProps) {
     setIsGenerating(true);
     setSuccessCount(null);
     try {
-      const res = await fetch("/api/interview/generate-questions", {
-        method: "POST",
+      const res = await fetch(`/api/interview?projectId=${projectId}`, {
+        method: "GET",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId }),
       });
 
       if (!res.ok) {
@@ -62,7 +61,7 @@ export function AIInterview({ projectId, onFactsUpdated }: AIInterviewProps) {
         answer: answers[i],
       }));
 
-      const res = await fetch("/api/interview/process-answers", {
+      const res = await fetch("/api/interview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ projectId, qnaPairs }),

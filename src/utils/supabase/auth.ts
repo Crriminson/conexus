@@ -25,16 +25,14 @@ export async function requireAuth(): Promise<User> {
  * @param projectId The ID of the project to check access against
  * @returns The authenticated Supabase User object
  */
-export async function requireProjectAuth(projectId: string): Promise<User> {
+export async function requireProjectAuth(projectId: string) {
   const user = await requireAuth();
 
   const { prisma } = await import('@/db');
-  const membership = await prisma.projectMember.findUnique({
+  const membership = await prisma.projectMember.findFirst({
     where: {
-      userId_projectId: {
-        userId: user.id,
-        projectId,
-      },
+      userId: user.id,
+      projectId,
     },
   });
 
@@ -42,5 +40,11 @@ export async function requireProjectAuth(projectId: string): Promise<User> {
     throw new Error('Forbidden: You do not have access to this project');
   }
 
+  return { user, membership };
+}
+
+export async function getUser(): Promise<User | null> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   return user;
 }

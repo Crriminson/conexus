@@ -7,9 +7,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params;
     if (!id) return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
 
-    const factCheck = await prisma.knowledgeBaseFact.findUnique({ where: { id }, select: { projectId: true } });
+    const factCheck = await prisma.knowledgeBaseEntry.findUnique({ where: { id }, select: { projectId: true } });
     if (!factCheck) return NextResponse.json({ error: 'Fact not found' }, { status: 404 });
-    await requireProjectAuth(factCheck.projectId);
+    const { user } = await requireProjectAuth(factCheck.projectId);
 
     const json = await request.json();
     const { content } = json;
@@ -18,7 +18,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'content is required' }, { status: 400 });
     }
 
-    const fact = await prisma.knowledgeBaseFact.update({
+    const fact = await prisma.knowledgeBaseEntry.update({
       where: { id },
       data: { content },
     });
@@ -36,11 +36,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const { id } = await params;
     if (!id) return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
 
-    const factCheck = await prisma.knowledgeBaseFact.findUnique({ where: { id }, select: { projectId: true } });
+    const factCheck = await prisma.knowledgeBaseEntry.findUnique({ where: { id }, select: { projectId: true } });
     if (!factCheck) return NextResponse.json({ error: 'Fact not found' }, { status: 404 });
-    await requireProjectAuth(factCheck.projectId);
+    const { user } = await requireProjectAuth(factCheck.projectId);
 
-    await prisma.knowledgeBaseFact.delete({
+    await prisma.knowledgeBaseEntry.delete({
       where: { id },
     });
 

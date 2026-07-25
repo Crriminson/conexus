@@ -70,7 +70,6 @@ export async function signup(formData: FormData) {
           id: data.user.id,
           email,
           name,
-          role: prismaRole,
         },
       });
     } catch (dbError: any) {

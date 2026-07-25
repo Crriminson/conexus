@@ -26,9 +26,6 @@
     "paths": {
       "@/*": [
         "./src/*"
-      ],
-      "@workspace/api-client-react": [
-        "./src/lib/api-client-react"
       ]
     }
   },
