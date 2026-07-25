@@ -14,6 +14,7 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 
 interface DocumentRecord {
@@ -50,7 +51,8 @@ export default function UploadPage({ projectId }: UploadPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [currentUploadName, setCurrentUploadName] = useState<string>("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // ─── Fetch documents ───────────────────────────────────────────────────────
@@ -110,12 +112,17 @@ export default function UploadPage({ projectId }: UploadPageProps) {
   // ─── Upload logic ─────────────────────────────────────────────────────────
   const handleFiles = async (files: FileList) => {
     setIsUploading(true);
+    setUploadProgress(0);
+    
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      setUploadProgress(`Uploading ${file.name} (${i + 1}/${files.length})…`);
+      setCurrentUploadName(file.name);
+      setUploadProgress(Math.round((i / files.length) * 100));
+      
       const formData = new FormData();
       formData.append("file", file);
       formData.append("projectId", projectId);
+      
       try {
         const res = await fetch("/api/documents", { method: "POST", body: formData });
         if (!res.ok) {
@@ -127,8 +134,10 @@ export default function UploadPage({ projectId }: UploadPageProps) {
         toast({ title: `Failed to upload ${file.name}`, description: err.message, variant: "destructive" });
       }
     }
+    
+    setUploadProgress(100);
     setIsUploading(false);
-    setUploadProgress(null);
+    setCurrentUploadName("");
     if (fileInputRef.current) fileInputRef.current.value = "";
     fetchDocuments();
   };
@@ -162,38 +171,41 @@ export default function UploadPage({ projectId }: UploadPageProps) {
       {/* Drop Zone */}
       <div
         onDragEnter={handleDrag}
-        onDragLeave={handleDrag}
         onDragOver={handleDrag}
+        onDragLeave={handleDrag}
         onDrop={handleDrop}
         onClick={() => !isUploading && fileInputRef.current?.click()}
         className={`
-          relative flex flex-col items-center justify-center rounded-[2.5rem] border-[3px] border-transparent
-          cursor-pointer transition-all duration-500 py-24 text-center overflow-hidden
+          relative flex flex-col items-center justify-center rounded-[2.5rem] border-2 border-dashed
+          cursor-pointer transition-all duration-500 py-24 text-center overflow-hidden group/dropzone
           ${dragActive
-            ? "border-primary/50 bg-primary/[0.03] scale-[1.02] shadow-xl"
-            : "bg-slate-100/50 hover:bg-slate-100 hover:scale-[1.01] shadow-sm hover:shadow-md"
+            ? "border-primary bg-primary/[0.02] scale-[1.02] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border-solid ring-4 ring-primary/20"
+            : "border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:scale-[1.01] hover:border-slate-300 hover:shadow-xl"
           }
         `}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/60 to-transparent pointer-events-none" />
         <div className={`
           relative z-10 rounded-full p-6 mb-6 transition-all duration-500
-          ${dragActive ? "bg-primary/20 scale-110 shadow-inner" : "bg-white shadow-sm"}
+          ${dragActive ? "bg-primary/10 scale-110 shadow-inner rotate-3" : "bg-white shadow-sm group-hover/dropzone:scale-105 group-hover/dropzone:shadow-md"}
         `}>
-          <UploadCloud className={`h-12 w-12 transition-colors duration-500 ${dragActive ? "text-primary" : "text-slate-400"}`} />
+          <UploadCloud className={`h-12 w-12 transition-colors duration-500 ${dragActive ? "text-primary" : "text-slate-400 group-hover/dropzone:text-slate-600"}`} />
         </div>
 
         <h3 className="text-xl font-semibold text-slate-800 mb-2">
-          {isUploading ? uploadProgress : dragActive ? "Drop files to upload" : "Click or drag files here"}
+          {isUploading ? `Uploading ${currentUploadName}...` : dragActive ? "Drop files to upload" : "Click or drag files here"}
         </h3>
         <p className="text-sm text-slate-500 mb-6 max-w-sm">
           PDF, DOCX, XLSX, JPG, PNG · Max 50 MB per file
         </p>
 
         {isUploading ? (
-          <div className="flex items-center gap-2 px-5 py-2.5 bg-primary/10 rounded-full text-primary text-sm font-medium">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Uploading…
+          <div className="w-full max-w-xs space-y-3">
+            <Progress value={uploadProgress} className="h-2 w-full bg-primary/10" />
+            <div className="flex items-center justify-center gap-2 text-primary text-sm font-medium">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {uploadProgress}%
+            </div>
           </div>
         ) : (
           <div className="px-5 py-2.5 bg-primary text-white rounded-full text-sm font-medium hover:bg-primary/90 transition-colors">
@@ -242,11 +254,11 @@ export default function UploadPage({ projectId }: UploadPageProps) {
                 style={{ animationDelay: `${i * 100}ms` }}
                 className="group flex items-start gap-4 rounded-[1.5rem] border border-slate-100 bg-white p-5 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 animate-in fade-in slide-in-from-bottom-4"
               >
-                <div className="flex-shrink-0 p-3 rounded-2xl bg-slate-50/80 shadow-sm border border-slate-100/50">
+                <div className="flex-shrink-0 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 transition-colors group-hover:bg-white group-hover:border-slate-200 shadow-sm">
                   <FileTypeIcon mimeType={doc.mimeType} />
                 </div>
                 <div className="flex-1 min-w-0 pt-0.5">
-                  <p className="text-[15px] font-semibold text-slate-900 truncate">{doc.title}</p>
+                  <p className="text-[15px] font-semibold text-slate-900 truncate group-hover:text-primary transition-colors">{doc.title}</p>
                   <p className="text-xs font-medium text-slate-500 mt-1">{formatSize(doc.sizeBytes)}</p>
                   <div className="flex items-center gap-2 mt-3">
                     <StatusBadge status={doc.status} />
