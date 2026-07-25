@@ -195,11 +195,17 @@ export function Sidebar({ className, ...props }: SidebarProps) {
               <span className="truncate text-sm font-medium text-red-400">Failed to load</span>
               <span className="truncate text-xs text-sidebar-foreground/60">Please log out</span>
             </div>
-            <form action={logout}>
-              <button type="submit" className="text-sidebar-foreground/50 hover:text-white transition-colors" title="Log out">
-                <LogOut className="h-4 w-4" />
-              </button>
-            </form>
+            <button
+              onClick={async () => {
+                queryClient.clear();
+                const supabase = createClient();
+                await supabase.auth.signOut();
+                window.location.href = '/login';
+              }}
+              className="text-sidebar-foreground/50 hover:text-white transition-colors" title="Log out"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         )}
       </div>

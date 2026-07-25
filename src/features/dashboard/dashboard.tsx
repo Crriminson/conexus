@@ -23,8 +23,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 
 export default function Dashboard() {
-  const statsRef = useRef<HTMLDivElement>(null);
-  const projectsRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const { data: projectsRes, isLoading: projectsLoading } = useQuery({
     queryKey: ["projects"],
@@ -52,25 +51,33 @@ export default function Dashboard() {
 
   // GSAP entry animations
   useEffect(() => {
-    if (!statsRef.current) return;
+    if (!containerRef.current) return;
     const ctx = gsap.context(() => {
-      gsap.from(".stat-card", {
-        y: 30,
-        opacity: 0,
-        duration: 0.5,
-        stagger: 0.08,
-        ease: "power3.out",
-        delay: 0.1,
-      });
-      gsap.from(".project-card", {
-        y: 20,
-        opacity: 0,
-        duration: 0.45,
-        stagger: 0.07,
-        ease: "power3.out",
-        delay: 0.35,
-      });
-    });
+      gsap.fromTo(
+        ".stat-card",
+        { y: 30, opacity: 0 },
+        {
+          y: 0,
+          opacity: 1,
+          duration: 0.5,
+          stagger: 0.08,
+          ease: "power3.out",
+          delay: 0.1,
+        }
+      );
+      gsap.fromTo(
+        ".project-card",
+        { y: 20, opacity: 0 },
+        {
+          y: 0,
+          opacity: 1,
+          duration: 0.45,
+          stagger: 0.07,
+          ease: "power3.out",
+          delay: 0.35,
+        }
+      );
+    }, containerRef); // scope to containerRef
     return () => ctx.revert();
   }, [projectsLoading]);
 
@@ -158,7 +165,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-10">
+    <div ref={containerRef} className="space-y-10">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -184,12 +191,12 @@ export default function Dashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div ref={statsRef} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="stat-card group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5"
-          >
+          <div key={stat.label} className="stat-card">
+            <div
+              className="group h-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5"
+            >
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm font-medium text-slate-500">{stat.label}</p>
               <div className={`p-2 rounded-xl ${stat.iconBg}`}>
@@ -207,12 +214,13 @@ export default function Dashboard() {
             ) : (
               <p className="text-xs text-slate-400">{stat.sub}</p>
             )}
+            </div>
           </div>
         ))}
       </div>
 
       {/* Projects Section */}
-      <div ref={projectsRef}>
+      <div className="space-y-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-xl font-semibold text-slate-900">
             Recent Projects
@@ -262,8 +270,9 @@ export default function Dashboard() {
                 <Link
                   key={project.id}
                   href={`/projects/${project.id}/eligibility`}
+                  className="project-card block h-full"
                 >
-                  <div className="project-card group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer h-full">
+                  <div className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer h-full">
                     {/* Top */}
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2.5">
