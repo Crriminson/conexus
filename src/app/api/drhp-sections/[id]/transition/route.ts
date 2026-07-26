@@ -5,9 +5,9 @@ import { CATEGORY_OWNERS, canEdit } from "@/rbac";
 import { SectionStatus, ProjectRole } from "@prisma/client";
 import { inngest } from "@/lib/inngest";
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const sectionId = params.id;
+    const { id: sectionId } = await params;
     const data = await request.json();
     const { action, reviewNotes } = data; // action: 'submit', 'approve', 'request-changes', 'reopen'
 

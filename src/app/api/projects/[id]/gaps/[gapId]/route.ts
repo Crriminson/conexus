@@ -5,7 +5,7 @@ import { requireProjectRole } from "@/rbac";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string; gapId: string } }
+  { params }: { params: Promise<{ id: string; gapId: string }> }
 ) {
   try {
     const user = await getUser();
@@ -13,8 +13,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const projectId = params.id;
-    const gapId = params.gapId;
+    const { id: projectId, gapId } = await params;
 
     // RBAC: Need edit access to something? Gaps are related to sections.
     // We will require Merchant Banker, Legal Advisor, or CS.

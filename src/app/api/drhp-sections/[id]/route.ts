@@ -5,9 +5,9 @@ import { canEdit } from "@/rbac";
 import { SectionCategory } from "@prisma/client";
 import { inngest } from "@/lib/inngest";
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const sectionId = params.id;
+    const { id: sectionId } = await params;
     
     // We just fetch it to see if it exists
     const section = await prisma.dRHPSection.findUnique({
@@ -36,9 +36,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const sectionId = params.id;
+    const { id: sectionId } = await params;
     const data = await request.json();
     const { action, content } = data;
 

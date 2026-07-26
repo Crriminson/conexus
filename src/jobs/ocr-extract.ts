@@ -24,9 +24,9 @@ export const ocrExtractJob = inngest.createFunction(
     // Step 3: Notify
     await step.run("send-notification", async () => {
       await notify({
-        userId: uploadedBy,
+        targetUserId: uploadedBy,
         projectId,
-        type: "OCR_COMPLETED",
+        event: "OCR extraction complete",
         message: "Document processing completed successfully.",
         relatedEntityId: documentId,
       });

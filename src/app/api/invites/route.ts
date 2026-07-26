@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     await prisma.auditLog.create({
       data: {
         projectId,
-        userId: user.id,
+        actorId: user.id,
         action: "INVITE_MEMBER",
         entityType: "ProjectMember",
         entityId: newMember.id,

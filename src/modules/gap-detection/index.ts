@@ -9,7 +9,7 @@ export function runGapDetection(sectionContent: string, category: string): any[]
   // For the sake of this prompt, we'll flag any rule where the missingItemDescription isn't found in the content.
   // Since our stub content is likely empty or simple text, it will flag everything by default.
   
-  const flaggedRules = rules.filter(rule => {
+  const flaggedRules = icdrChecklist.filter(rule => {
     // If the content doesn't contain the keyword (we just use a simple heuristic for now)
     // Actually, just flag everything to ensure GapFlag rows are generated for testing.
     return true; 

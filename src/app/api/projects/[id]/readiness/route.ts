@@ -5,7 +5,7 @@ import { requireProjectRole } from "@/rbac";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getUser();
@@ -13,7 +13,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const projectId = params.id;
+    const { id: projectId } = await params;
     await requireProjectRole(user.id, projectId, [
       "APPLICANT_COMPANY",
       "MERCHANT_BANKER",

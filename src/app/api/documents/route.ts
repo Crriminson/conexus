@@ -53,6 +53,20 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    // Ensure bucket exists
+    const { data: bucket, error: bucketError } = await supabase.storage.getBucket('documents');
+    if (bucketError && (bucketError.message.includes('not found') || bucketError.message.includes('Bucket not found'))) {
+      const { error: createError } = await supabase.storage.createBucket('documents', {
+        public: true,
+        allowedMimeTypes: ALLOWED_TYPES,
+        fileSizeLimit: MAX_SIZE
+      });
+      if (createError) {
+        console.error('Failed to create documents bucket:', createError);
+        // We'll continue and let the upload fail if the bucket wasn't created successfully
+      }
+    }
+
     const { data: storageData, error: storageError } = await supabase.storage
       .from('documents')
       .upload(storagePath, buffer, {
@@ -88,10 +102,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    await inngest.send({
-      name: "document.uploaded",
-      data: { documentId: document.id, projectId },
-    });
+    try {
+      await inngest.send({
+        name: "document.uploaded",
+        data: { documentId: document.id, projectId },
+      });
+    } catch (inngestError) {
+      console.warn("Failed to trigger inngest background job:", inngestError);
+      // Don't fail the upload if background job trigger fails
+    }
 
     return NextResponse.json({ document }, { status: 201 });
   } catch (err: any) {

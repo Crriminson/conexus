@@ -1,6 +1,6 @@
 import { prisma } from "@/db";
 import { createClient } from "@supabase/supabase-js";
-import PdfPrinter from "pdfmake";
+const PdfPrinter = require("pdfmake");
 import type { TDocumentDefinitions } from "pdfmake/interfaces";
 
 // Initialize Supabase client for storage
@@ -103,9 +103,9 @@ export async function generateExport(projectId: string) {
   const artifact = await prisma.exportArtifact.create({
     data: {
       projectId,
-      version: 1, // simplified
+      title: "DRHP Export",
+      format: "PDF",
       fileUrl,
-      generatedById: project.ownerId,
     }
   });
 

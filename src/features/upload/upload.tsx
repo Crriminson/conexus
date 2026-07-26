@@ -161,9 +161,9 @@ export default function UploadPage({ projectId }: UploadPageProps) {
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Document Upload</h1>
-        <p className="text-slate-500 mt-1">
+      <div className="mb-8">
+        <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">Document Upload</h1>
+        <p className="text-lg text-slate-500 mt-2 font-medium">
           Upload source files. Conexus AI will extract structured data for the Knowledge Base.
         </p>
       </div>
@@ -192,10 +192,10 @@ export default function UploadPage({ projectId }: UploadPageProps) {
           <UploadCloud className={`h-12 w-12 transition-colors duration-500 ${dragActive ? "text-primary" : "text-slate-400 group-hover/dropzone:text-slate-600"}`} />
         </div>
 
-        <h3 className="text-xl font-semibold text-slate-800 mb-2">
+        <h3 className="text-2xl font-bold text-slate-800 mb-2">
           {isUploading ? `Uploading ${currentUploadName}...` : dragActive ? "Drop files to upload" : "Click or drag files here"}
         </h3>
-        <p className="text-sm text-slate-500 mb-6 max-w-sm">
+        <p className="text-base font-medium text-slate-500 mb-8 max-w-md">
           PDF, DOCX, XLSX, JPG, PNG · Max 50 MB per file
         </p>
 
@@ -208,7 +208,7 @@ export default function UploadPage({ projectId }: UploadPageProps) {
             </div>
           </div>
         ) : (
-          <div className="px-5 py-2.5 bg-primary text-white rounded-full text-sm font-medium hover:bg-primary/90 transition-colors">
+          <div className="px-6 py-3 bg-primary text-white rounded-full text-base font-semibold hover:bg-primary/90 transition-colors shadow-sm hover:shadow-md cursor-pointer">
             Select Files
           </div>
         )}
@@ -225,10 +225,10 @@ export default function UploadPage({ projectId }: UploadPageProps) {
 
       {/* Documents Grid */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-900">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
             Uploaded Documents
-            <span className="ml-2 text-sm font-normal text-slate-400">({documents.length})</span>
+            <Badge variant="secondary" className="text-sm font-semibold px-2.5 py-0.5 rounded-full">{documents.length}</Badge>
           </h2>
           {documents.length > 0 && (
             <button onClick={fetchDocuments} className="text-xs text-primary hover:underline">
@@ -258,11 +258,11 @@ export default function UploadPage({ projectId }: UploadPageProps) {
                   <FileTypeIcon mimeType={doc.mimeType} />
                 </div>
                 <div className="flex-1 min-w-0 pt-0.5">
-                  <p className="text-[15px] font-semibold text-slate-900 truncate group-hover:text-primary transition-colors">{doc.title}</p>
-                  <p className="text-xs font-medium text-slate-500 mt-1">{formatSize(doc.sizeBytes)}</p>
-                  <div className="flex items-center gap-2 mt-3">
+                  <p className="text-base font-bold text-slate-900 truncate group-hover:text-primary transition-colors">{doc.title}</p>
+                  <p className="text-sm font-medium text-slate-500 mt-1">{formatSize(doc.sizeBytes)}</p>
+                  <div className="flex items-center gap-3 mt-4">
                     <StatusBadge status={doc.status} />
-                    <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                       {new Date(doc.createdAt).toLocaleDateString()}
                     </span>
                   </div>
