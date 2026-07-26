@@ -41,7 +41,20 @@ export default function ValidationPage() {
 
   const { data: issues } = useQuery({
     queryKey: ["validations", projectId],
-    queryFn: async () => null, // No list API yet — using mock data below
+    queryFn: async () => {
+      const res = await fetch(`/api/validation-engine?projectId=${projectId}`);
+      if (!res.ok) return [];
+      const json = await res.json();
+      return (json.results || []).map((r: any) => ({
+        id: r.id,
+        projectId,
+        type: r.status === "FLAGGED_FOR_REVIEW" ? "missing_field" : "success",
+        severity: r.status === "FLAGGED_FOR_REVIEW" ? "error" : "success",
+        message: r.message || r.explanation || "Validation check",
+        section: r.matchedRegulation || "General",
+        isResolved: r.status === "PASS"
+      }));
+    },
   });
 
   const runMutation = useMutation({

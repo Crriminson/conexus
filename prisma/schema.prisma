@@ -307,5 +307,5 @@ model ICDRCorpus {
   subClause        String?
   title            String
   content          String
-  embedding        Unsupported("vector(1536)")?
+  embedding        Unsupported("vector(3072)")?
 }
