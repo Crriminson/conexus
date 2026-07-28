@@ -1,6 +1,5 @@
 "use client";
 import { useParams } from "next/navigation";
-import { AppLayout } from "@/components/layout/app-layout";
 import KnowledgeBasePage from "@/features/knowledge-base/knowledge-base";
 
 export default function Page() {
@@ -8,8 +7,8 @@ export default function Page() {
   const projectId = params.id as string;
 
   return (
-    <AppLayout>
-      <KnowledgeBasePage projectId={projectId} />
-    </AppLayout>
-  );
+    <>
+<KnowledgeBasePage projectId={projectId} />
+    </>
+);
 }
