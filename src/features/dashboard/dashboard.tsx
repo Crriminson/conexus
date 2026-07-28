@@ -1,217 +1,335 @@
 "use client";
 import Link from "next/link";
-
-import { useGetProjectStats, useListProjects, Project } from "@workspace/api-client-react"
-import { 
-  FolderKanban, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Clock, 
+import { useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { gsap } from "gsap";
+import {
+  FolderKanban,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
   Plus,
-  ActivitySquare,
+  ShieldCheck,
+  Upload,
   FileText,
-  Upload
-} from "lucide-react"
+  ActivitySquare,
+  TrendingUp,
+  Building2,
+  ArrowRight,
+} from "lucide-react";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { Badge } from "@/components/ui/badge"
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table"
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 
 export default function Dashboard() {
-  const { data: stats, isLoading: statsLoading } = useGetProjectStats()
-  const { data: projects, isLoading: projectsLoading } = useListProjects()
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Mock data fallbacks for when API returns undefined or empty
-  const displayStats = stats || {
-    activeProjects: 3,
-    averageCompletion: 42,
-    totalAlerts: 15,
-    pendingTasks: 28,
-    recentActivity: [
-      { id: 1, type: 'validation', description: 'Validation completed for Acme Corp', timestamp: '2 hours ago', projectName: 'Acme Corp' },
-      { id: 2, type: 'upload', description: 'Financial statements uploaded', timestamp: '5 hours ago', projectName: 'Nexus Tech' },
-      { id: 3, type: 'review', description: 'Legal review comments added', timestamp: '1 day ago', projectName: 'Acme Corp' },
-    ]
-  }
+  const { data: projectsRes, isLoading: projectsLoading } = useQuery({
+    queryKey: ["projects"],
+    queryFn: async () => {
+      const res = await fetch("/api/projects");
+      if (!res.ok) throw new Error("Failed to fetch projects");
+      return res.json();
+    },
+  });
 
-  const displayProjects = projects && projects.length > 0 ? projects : [
-    { id: 1, companyName: "Acme Corp", industry: "Technology", status: "in_progress", completionPercentage: 65, validationAlerts: 3 },
-    { id: 2, companyName: "Nexus Tech", industry: "Manufacturing", status: "draft", completionPercentage: 15, validationAlerts: 0 },
-    { id: 3, companyName: "Global Retail", industry: "Retail", status: "under_review", completionPercentage: 90, validationAlerts: 12 },
-  ] as Project[]
+  const projects = projectsRes?.projects || [];
 
-  function getStatusBadge(status: string) {
-    switch (status) {
-      case 'approved': return <Badge variant="success">Approved</Badge>
-      case 'under_review': return <Badge variant="warning">Review</Badge>
-      case 'in_progress': return <Badge variant="blue">In Progress</Badge>
-      case 'draft': return <Badge variant="secondary">Draft</Badge>
-      default: return <Badge variant="outline">{status.replace('_', ' ')}</Badge>
+  const activeProjects = projects.filter(
+    (p: any) => p.status !== "draft" && p.status !== "approved"
+  ).length;
+  const avgCompletion =
+    projects.length > 0
+      ? Math.round(
+          projects.reduce(
+            (acc: number, p: any) => acc + (p.completionPercentage ?? 0),
+            0
+          ) / projects.length
+        )
+      : 0;
+
+  // GSAP entry animations
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        ".stat-card",
+        { y: 30, opacity: 0 },
+        {
+          y: 0,
+          opacity: 1,
+          duration: 0.5,
+          stagger: 0.08,
+          ease: "power3.out",
+          delay: 0.1,
+        }
+      );
+      gsap.fromTo(
+        ".project-card",
+        { y: 20, opacity: 0 },
+        {
+          y: 0,
+          opacity: 1,
+          duration: 0.45,
+          stagger: 0.07,
+          ease: "power3.out",
+          delay: 0.35,
+        }
+      );
+    }, containerRef); // scope to containerRef
+    return () => ctx.revert();
+  }, [projectsLoading]);
+
+  function getStatusConfig(status: string) {
+    switch (status?.toLowerCase()) {
+      case "approved":
+        return {
+          label: "Approved",
+          className: "bg-green-100 text-green-700 border-green-200",
+        };
+      case "under_review":
+        return {
+          label: "Under Review",
+          className: "bg-amber-100 text-amber-700 border-amber-200",
+        };
+      case "in_progress":
+        return {
+          label: "In Progress",
+          className: "bg-blue-100 text-blue-700 border-blue-200",
+        };
+      case "draft":
+        return {
+          label: "Draft",
+          className: "bg-slate-100 text-slate-600 border-slate-200",
+        };
+      default:
+        return {
+          label: status?.replace(/_/g, " ") ?? "Unknown",
+          className: "bg-slate-100 text-slate-600 border-slate-200",
+        };
     }
   }
 
+  function getRoleLabel(role: string) {
+    const map: Record<string, string> = {
+      APPLICANT_COMPANY: "Applicant",
+      MERCHANT_BANKER: "Merchant Banker",
+      CHARTERED_ACCOUNTANT: "CA",
+      COMPANY_SECRETARY: "CS",
+      LEGAL_ADVISOR: "Legal Advisor",
+      UNDERWRITER: "Underwriter",
+    };
+    return map[role] ?? role;
+  }
+
+  const stats = [
+    {
+      label: "Active Projects",
+      value: projectsLoading ? "—" : activeProjects,
+      icon: FolderKanban,
+      iconColor: "text-blue-500",
+      iconBg: "bg-blue-50",
+      sub: "Currently in progress",
+    },
+    {
+      label: "Avg Completion",
+      value: projectsLoading ? "—" : `${avgCompletion}%`,
+      icon: TrendingUp,
+      iconColor: "text-green-500",
+      iconBg: "bg-green-50",
+      sub: "Across all projects",
+      progress: avgCompletion,
+    },
+    {
+      label: "Validation Alerts",
+      value: projectsLoading
+        ? "—"
+        : projects.reduce(
+            (a: number, p: any) => a + (p.validationAlerts ?? 0),
+            0
+          ),
+      icon: AlertTriangle,
+      iconColor: "text-amber-500",
+      iconBg: "bg-amber-50",
+      sub: "Needs attention",
+    },
+    {
+      label: "Pending Tasks",
+      value: "0",
+      icon: Clock,
+      iconColor: "text-purple-500",
+      iconBg: "bg-purple-50",
+      sub: "No pending tasks",
+    },
+  ];
+
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div ref={containerRef} className="space-y-10">
+      {/* Header */}
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
-          <p className="text-slate-500 mt-1">Overview of your IPO projects and pending compliance tasks.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+            Dashboard
+          </h1>
+          <p className="text-slate-500 mt-1">
+            Overview of your IPO projects and compliance status.
+          </p>
         </div>
         <div className="flex gap-3">
           <Link href="/projects">
-            <Button variant="outline">View All</Button>
+            <Button variant="outline" className="rounded-xl">
+              View All
+            </Button>
           </Link>
           <Link href="/projects/new">
-            <Button><Plus className="mr-2 h-4 w-4" /> New IPO</Button>
+            <Button className="rounded-xl shadow-sm">
+              <Plus className="mr-2 h-4 w-4" /> New IPO
+            </Button>
           </Link>
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stat Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Active Projects</CardTitle>
-            <FolderKanban className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{statsLoading ? "..." : displayStats.activeProjects}</div>
-            <p className="text-xs text-slate-500 mt-1">Currently in progress</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Avg Completion</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{statsLoading ? "..." : `${displayStats.averageCompletion}%`}</div>
-            <Progress value={displayStats.averageCompletion} className="h-1 mt-2" />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Validation Alerts</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{statsLoading ? "..." : displayStats.totalAlerts}</div>
-            <p className="text-xs text-slate-500 mt-1">Across all projects</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Pending Tasks</CardTitle>
-            <Clock className="h-4 w-4 text-purple-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{statsLoading ? "..." : displayStats.pendingTasks}</div>
-            <p className="text-xs text-slate-500 mt-1">Requires attention</p>
-          </CardContent>
-        </Card>
+        {stats.map((stat) => (
+          <div key={stat.label} className="stat-card">
+            <div
+              className="group h-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5"
+            >
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-medium text-slate-500">{stat.label}</p>
+              <div className={`p-2 rounded-xl ${stat.iconBg}`}>
+                <stat.icon className={`h-4 w-4 ${stat.iconColor}`} />
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-slate-900 mb-1">
+              {stat.value}
+            </div>
+            {stat.progress !== undefined ? (
+              <Progress
+                value={stat.progress}
+                className="h-1 mt-3 rounded-full"
+              />
+            ) : (
+              <p className="text-xs text-slate-400">{stat.sub}</p>
+            )}
+            </div>
+          </div>
+        ))}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-7 lg:grid-cols-8">
-        {/* Recent Projects Table */}
-        <Card className="md:col-span-4 lg:col-span-5">
-          <CardHeader>
-            <CardTitle>Recent Projects</CardTitle>
-            <CardDescription>Active IPO preparations</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {projectsLoading ? (
-              <div className="py-8 text-center text-slate-500">Loading projects...</div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Progress</TableHead>
-                    <TableHead className="text-right">Alerts</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {displayProjects.map((project) => (
-                    <TableRow key={project.id} className="cursor-pointer hover:bg-slate-50">
-                      <TableCell className="font-medium">
-                        <Link href={`/projects/${project.id}/documentation`} className="hover:underline text-slate-900">
-                          {project.companyName}
-                        </Link>
-                        <div className="text-xs text-slate-500 font-normal">{project.industry}</div>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(project.status)}</TableCell>
-                      <TableCell className="w-[30%]">
-                        <div className="flex items-center gap-2">
-                          <Progress value={project.completionPercentage} className="h-2 flex-1" />
-                          <span className="text-xs text-slate-500 w-8">{project.completionPercentage}%</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {project.validationAlerts && project.validationAlerts > 0 ? (
-                          <Badge variant="destructive" className="ml-auto">{project.validationAlerts}</Badge>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+      {/* Projects Section */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xl font-semibold text-slate-900">
+            Recent Projects
+          </h2>
+          <Link
+            href="/projects"
+            className="flex items-center gap-1 text-sm text-primary hover:underline"
+          >
+            View all <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
 
-        {/* Recent Activity Feed */}
-        <Card className="md:col-span-3 lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Platform events</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-8">
-              {!statsLoading && displayStats.recentActivity?.map((activity, i) => (
-                <div key={activity.id} className="flex gap-4">
-                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                    {activity.type === 'validation' && <ShieldCheck className="h-4 w-4" />}
-                    {activity.type === 'upload' && <Upload className="h-4 w-4" />}
-                    {activity.type === 'review' && <FileText className="h-4 w-4" />}
-                    {(!['validation', 'upload', 'review'].includes(activity.type)) && <ActivitySquare className="h-4 w-4" />}
-                  </div>
-                  <div className="flex flex-col">
-                    <p className="text-sm font-medium text-slate-900">
-                      {activity.description}
-                    </p>
-                    <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
-                      <span className="font-medium text-primary">{activity.projectName}</span>
-                      <span>•</span>
-                      <span>{activity.timestamp}</span>
+        {projectsLoading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="rounded-2xl border border-slate-200 bg-white p-6 animate-pulse"
+              >
+                <div className="h-4 bg-slate-100 rounded w-2/3 mb-3" />
+                <div className="h-3 bg-slate-100 rounded w-1/2 mb-6" />
+                <div className="h-2 bg-slate-100 rounded w-full" />
+              </div>
+            ))}
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 py-20 text-center">
+            <Building2 className="h-10 w-10 text-slate-200 mx-auto mb-4" />
+            <p className="text-slate-600 font-medium">No projects yet</p>
+            <p className="text-slate-400 text-sm mt-1 mb-5">
+              Create your first IPO project to get started.
+            </p>
+            <Link href="/projects/new">
+              <Button className="rounded-xl">
+                <Plus className="mr-2 h-4 w-4" /> New IPO Project
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {projects.slice(0, 6).map((project: any) => {
+              const statusConfig = getStatusConfig(project.status);
+              const completion = project.completionPercentage ?? 0;
+              const userRole = project.members?.[0]?.role;
+
+              return (
+                <Link
+                  key={project.id}
+                  href={`/projects/${project.id}/eligibility`}
+                  className="project-card block h-full"
+                >
+                  <div className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer h-full">
+                    {/* Top */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 flex-shrink-0">
+                          <Building2 className="h-4 w-4 text-primary" />
+                        </div>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${statusConfig.className}`}
+                        >
+                          {statusConfig.label}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Name */}
+                    <h3 className="font-semibold text-slate-900 text-base leading-snug group-hover:text-primary transition-colors mb-1">
+                      {project.companyName || project.name}
+                    </h3>
+                    {project.industry && (
+                      <p className="text-xs text-slate-400 mb-4">
+                        {project.industry}
+                      </p>
+                    )}
+
+                    {/* Progress */}
+                    <div className="mt-auto space-y-1.5">
+                      <div className="flex justify-between text-xs text-slate-500">
+                        <span>Progress</span>
+                        <span className="font-medium">{completion}%</span>
+                      </div>
+                      <Progress
+                        value={completion}
+                        className="h-1.5 rounded-full"
+                      />
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
+                      {userRole && (
+                        <span className="text-xs font-medium text-primary bg-primary/8 px-2.5 py-1 rounded-full">
+                          {getRoleLabel(userRole)}
+                        </span>
+                      )}
+                      <span className="text-xs text-slate-400 ml-auto">
+                        {new Date(project.createdAt).toLocaleDateString(
+                          undefined,
+                          { month: "short", day: "numeric" }
+                        )}
+                      </span>
                     </div>
                   </div>
-                </div>
-              ))}
-              
-              {(!displayStats.recentActivity || displayStats.recentActivity.length === 0) && (
-                <div className="text-center text-sm text-slate-500 py-4">No recent activity</div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
-  )
+  );
 }
-// Placeholder icon not imported above
-const ShieldCheck = AlertTriangle; // Reusing to satisfy compiler, but normally would import real icon

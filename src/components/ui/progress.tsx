@@ -4,8 +4,8 @@ import { cn } from "@/components/ui/button"
 
 const Progress = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & { value?: number }
->(({ className, value = 0, ...props }, ref) => (
+  React.HTMLAttributes<HTMLDivElement> & { value?: number, indicatorClassName?: string }
+>(({ className, indicatorClassName, value = 0, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
@@ -15,7 +15,7 @@ const Progress = React.forwardRef<
     {...props}
   >
     <div
-      className="h-full w-full flex-1 bg-primary transition-all"
+      className={cn("h-full w-full flex-1 bg-primary transition-all", indicatorClassName)}
       style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
     />
   </div>

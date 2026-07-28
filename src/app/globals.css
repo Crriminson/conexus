@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Inter:wght@300;400;500;600;700&display=swap');
 @import 'tailwindcss';
 @plugin "tailwindcss-animate";
 @plugin "@tailwindcss/typography";
@@ -121,10 +121,10 @@
   --chart-4: 175 65% 39%;
   --chart-5: 25 85% 57%;
 
-  --app-font-sans: 'Inter', sans-serif;
+  --app-font-sans: 'Proxima Nova', 'Montserrat', 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
-  --radius: 0.5rem;
+  --radius: 0.75rem;
   
   --shadow-2xs: 0px 1px 2px 0px rgba(0, 0, 0, 0.05);
   --shadow-xs: 0px 1px 2px 0px rgba(0, 0, 0, 0.05);
@@ -278,3 +278,6 @@
     inset: -1px;
   }
 }
+
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }

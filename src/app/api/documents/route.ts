@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { prisma } from '@/db';
 import { requireProjectAuth } from '@/utils/supabase/auth';
+import { inngest } from '@/lib/inngest';
 
 const ALLOWED_TYPES = [
   'application/pdf',
@@ -20,10 +21,13 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null;
     const projectId = formData.get('projectId') as string | null;
 
+    const category = formData.get('category') as string || 'OTHER';
+    const fileType = formData.get('fileType') as string || 'General';
+
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     if (!projectId) return NextResponse.json({ error: 'No projectId provided' }, { status: 400 });
 
-    await requireProjectAuth(projectId);
+    const { user } = await requireProjectAuth(projectId);
 
     // Validate file
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -48,6 +52,20 @@ export async function POST(request: NextRequest) {
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+
+    // Ensure bucket exists
+    const { data: bucket, error: bucketError } = await supabase.storage.getBucket('documents');
+    if (bucketError && (bucketError.message.includes('not found') || bucketError.message.includes('Bucket not found'))) {
+      const { error: createError } = await supabase.storage.createBucket('documents', {
+        public: true,
+        allowedMimeTypes: ALLOWED_TYPES,
+        fileSizeLimit: MAX_SIZE
+      });
+      if (createError) {
+        console.error('Failed to create documents bucket:', createError);
+        // We'll continue and let the upload fail if the bucket wasn't created successfully
+      }
+    }
 
     const { data: storageData, error: storageError } = await supabase.storage
       .from('documents')
@@ -74,12 +92,25 @@ export async function POST(request: NextRequest) {
       data: {
         title: file.name,
         fileUrl: urlData.publicUrl,
+        fileType,
         mimeType: file.type,
         sizeBytes: file.size,
+        category,
         status: 'Uploaded',
         projectId,
+        uploadedById: user.id,
       },
     });
+
+    try {
+      await inngest.send({
+        name: "document.uploaded",
+        data: { documentId: document.id, projectId },
+      });
+    } catch (inngestError) {
+      console.warn("Failed to trigger inngest background job:", inngestError);
+      // Don't fail the upload if background job trigger fails
+    }
 
     return NextResponse.json({ document }, { status: 201 });
   } catch (err: any) {

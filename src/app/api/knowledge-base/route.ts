@@ -9,9 +9,9 @@ export async function GET(request: NextRequest) {
 
     if (!projectId) return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
 
-    await requireProjectAuth(projectId);
+    const { user } = await requireProjectAuth(projectId);
 
-    const facts = await prisma.knowledgeBaseFact.findMany({
+    const facts = await prisma.knowledgeBaseEntry.findMany({
       where: { projectId },
       orderBy: [
         { category: 'asc' },
@@ -36,14 +36,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'projectId, category, and content are required' }, { status: 400 });
     }
 
-    await requireProjectAuth(projectId);
+    const { user } = await requireProjectAuth(projectId);
 
-    const fact = await prisma.knowledgeBaseFact.create({
+    const fact = await prisma.knowledgeBaseEntry.create({
       data: {
         projectId,
+        sourceType: source || 'manual',
+        fieldKey: category,
+        fieldValue: content,
         category,
         content,
-        source: source || null,
       },
     });
 

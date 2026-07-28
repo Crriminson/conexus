@@ -36,7 +36,7 @@ const SECTIONS = [
   { id: "AI Interview", label: "AI Interview", icon: Bot },
 ];
 
-interface KnowledgeBaseFact {
+interface KnowledgeBaseEntry {
   id: string;
   category: string;
   content: string;
@@ -48,7 +48,7 @@ export default function KnowledgeBasePage({ projectId }: { projectId: string }) 
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState(SECTIONS[0].id);
-  const [facts, setFacts] = useState<KnowledgeBaseFact[]>([]);
+  const [facts, setFacts] = useState<KnowledgeBaseEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -150,7 +150,7 @@ export default function KnowledgeBasePage({ projectId }: { projectId: string }) 
     }
   };
 
-  const startEditing = (fact: KnowledgeBaseFact) => {
+  const startEditing = (fact: KnowledgeBaseEntry) => {
     setEditingId(fact.id);
     setEditContent(fact.content);
     setEditSource(fact.source || "");

@@ -1,5 +1,5 @@
 "use client";
-import { useGetMe } from "@workspace/api-client-react"
+import { useQuery } from "@tanstack/react-query"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -8,7 +8,14 @@ import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 export default function SettingsPage() {
-  const { data: user } = useGetMe()
+  const { data: user } = useQuery({
+    queryKey: ['me'],
+    queryFn: async () => {
+      const res = await fetch('/api/me')
+      if (!res.ok) throw new Error("Failed to fetch")
+      return res.json()
+    }
+  })
   
   // Mock user if API fails
   const displayUser = user || {
@@ -58,7 +65,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Platform Role</Label>
-                  <Input id="role" defaultValue={displayUser.role.replace('_', ' ').toUpperCase()} disabled className="bg-slate-50" />
+                  <Input id="role" defaultValue={(displayUser.role || "User").replace('_', ' ').toUpperCase()} disabled className="bg-slate-50" />
                 </div>
               </div>
               

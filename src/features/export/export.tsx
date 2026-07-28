@@ -10,14 +10,29 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
-import { useExportDocument, ExportInputFormat } from "@workspace/api-client-react"
+import { useMutation } from "@tanstack/react-query"
+
+export enum ExportInputFormat {
+  pdf = "pdf",
+  docx = "docx"
+}
 
 export default function ExportPage() {
   const params = useParams()
-  const projectId = Number(params.id)
+  const projectId = params.id as string
   const { toast } = useToast()
   
-  const exportMutation = useExportDocument()
+  const exportMutation = useMutation({
+    mutationFn: async ({ projectId, data }: { projectId: string, data: any }) => {
+      const res = await fetch('/api/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, ...data })
+      })
+      if (!res.ok) throw new Error("Export failed")
+      return res.json()
+    }
+  })
   
   const [format, setFormat] = useState<ExportInputFormat>(ExportInputFormat.pdf)
   const [includeCover, setIncludeCover] = useState(true)

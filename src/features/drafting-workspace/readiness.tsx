@@ -8,13 +8,30 @@ import { Rocket, ShieldAlert, CheckCircle2, CircleDashed, ArrowRight } from "luc
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { useGetReadiness, ReadinessDashboard } from "@workspace/api-client-react"
+import { useQuery } from "@tanstack/react-query"
+
+interface ReadinessDashboard {
+  projectId: string
+  overallScore: number
+  sectionScores: { section: string; score: number; maxScore: number; status: string }[]
+  validationPassed: number
+  pendingGaps: number
+  readyForReview: boolean
+  timeline: { id: number; title: string; date: string; status: string }[]
+}
 
 export default function ReadinessPage() {
   const params = useParams()
-  const projectId = Number(params.id)
+  const projectId = params.id as string
   
-  const { data: readiness, isLoading } = useGetReadiness(projectId)
+  const { data: readiness, isLoading } = useQuery({
+    queryKey: ['readiness', projectId],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${projectId}/readiness`);
+      if (!res.ok) throw new Error("Failed to fetch readiness");
+      return res.json();
+    }
+  })
 
   // Mock data fallback
   const displayData: ReadinessDashboard = readiness || {

@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { useCreateProject } from "@workspace/api-client-react"
+import { useMutation } from "@tanstack/react-query"
 
 const projectSchema = z.object({
   companyName: z.string().min(2, { message: "Company name must be at least 2 characters" }),
@@ -59,7 +59,20 @@ export default function NewProjectPage() {
     },
   })
 
-  const createProject = useCreateProject()
+  const createProject = useMutation({
+    mutationFn: async ({ data }: { data: ProjectFormValues }) => {
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to create project");
+      }
+      return res.json();
+    }
+  })
 
   function onSubmit(data: ProjectFormValues) {
     createProject.mutate({ data }, {
@@ -69,7 +82,7 @@ export default function NewProjectPage() {
           description: "Starting eligibility assessment workflow.",
         })
         // Go straight to the first step of the workflow
-        setLocation(`/projects/${newProject.id}/eligibility`)
+        setLocation(`/projects/${newProject.project.id}/eligibility`)
       },
       onError: (error) => {
         toast({
