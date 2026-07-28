@@ -165,15 +165,32 @@ async function callOpenRouter(prompt: string, opts: GenerateOptions = {}): Promi
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error('Missing OPENROUTER_API_KEY environment variable');
 
+  const isMultimodal = hasMedia(opts);
+
   // We use a completely free model on OpenRouter as the absolute fallback.
-  // These models are slightly slower but won't run out of credits.
-  const model = opts.openRouterModel ?? 'google/gemma-2-9b-it:free';
+  // If multimodal, we must pick a model that supports vision (like Gemini free tier on OpenRouter).
+  const model = opts.openRouterModel ?? (isMultimodal ? 'google/gemini-2.0-flash-lite-preview-02-05:free' : 'google/gemma-2-9b-it:free');
 
   const messages: any[] = [];
   if (opts.systemPrompt) {
     messages.push({ role: 'system', content: opts.systemPrompt });
   }
-  messages.push({ role: 'user', content: prompt });
+
+  // Format content for OpenAI-compatible vision if media exists
+  let userContent: any = prompt;
+  if (isMultimodal && opts.media) {
+    userContent = [{ type: 'text', text: prompt }];
+    for (const m of opts.media) {
+      userContent.push({
+        type: 'image_url',
+        image_url: {
+          url: `data:${m.mimeType};base64,${m.data}`
+        }
+      });
+    }
+  }
+
+  messages.push({ role: 'user', content: userContent });
 
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
@@ -208,7 +225,7 @@ async function callOpenRouter(prompt: string, opts: GenerateOptions = {}): Promi
  * Generate text using Gemini (primary) with Groq fallback and OpenRouter 3rd layer.
  *
  * - Text-only: tries Gemini first -> Groq (on 429/5xx) -> OpenRouter (on 429/5xx).
- * - Multimodal (media attached): Gemini only, throws on failure.
+ * - Multimodal (media attached): Gemini first -> skips Groq -> OpenRouter (on 429/5xx).
  */
 export async function generate(
   prompt: string,
@@ -219,14 +236,6 @@ export async function generate(
   try {
     return await callGemini(prompt, opts);
   } catch (geminiError: any) {
-    // If multimodal was requested, we cannot fall back to text-only APIs easily
-    if (isMultimodal) {
-      throw new Error(
-        `Gemini failed on multimodal request and no fallback is available for media inputs. ` +
-        `Original error: ${geminiError?.message ?? geminiError}`
-      );
-    }
-
     // If explicitly Gemini-only, don't fallback
     if (opts.geminiOnly) {
       throw geminiError;
@@ -235,6 +244,15 @@ export async function generate(
     // Only fallback on rate-limit or server errors
     if (!isRetryable(geminiError)) {
       throw geminiError;
+    }
+
+    // If multimodal was requested, Groq (text-only) cannot handle it.
+    // Skip Groq entirely and go straight to OpenRouter.
+    if (isMultimodal) {
+      console.warn(
+        `[llmClient] Gemini failed on multimodal request (${geminiError?.message ?? 'unknown'}), skipping Groq and falling back to OpenRouter.`
+      );
+      return await callOpenRouter(prompt, opts);
     }
 
     console.warn(
