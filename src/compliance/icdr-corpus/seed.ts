@@ -1,4 +1,5 @@
 import { prisma } from "@/db";
+import { generateEmbedding } from "@/lib/llmClient";
 
 export async function seedIcdrCorpus() {
   const regulations = [
@@ -22,11 +23,14 @@ export async function seedIcdrCorpus() {
     },
   ];
 
+  // Clear existing to avoid duplicates when reseeding
+  await prisma.$executeRaw`ALTER TABLE "ICDRCorpus" ALTER COLUMN embedding TYPE vector(3072);`;
+  await prisma.$executeRaw`TRUNCATE TABLE "ICDRCorpus" RESTART IDENTITY;`;
+
   for (const reg of regulations) {
-    // Generate a mock embedding for seeding if an API key isn't provided
-    // In a real environment, you would call `text-embedding-3-small` here
-    const mockEmbedding = Array(1536).fill(0).map(() => Math.random());
-    const formattedEmbedding = `[${mockEmbedding.join(",")}]`;
+    console.log(`Generating embedding for ${reg.regulationNumber} ${reg.subClause || ""}...`);
+    const embedding = await generateEmbedding(reg.content);
+    const formattedEmbedding = `[${embedding.join(",")}]`;
 
     await prisma.$executeRaw`
       INSERT INTO "ICDRCorpus" ("id", "regulationNumber", "subClause", "title", "content", "embedding")
