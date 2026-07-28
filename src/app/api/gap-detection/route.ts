@@ -2,8 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { requireProjectAuth } from "@/utils/supabase/auth";
 import { inngest } from "@/lib/inngest";
+import { rateLimit } from "@/lib/rateLimit";
+
+function checkRateLimit(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for") ?? "unknown";
+  return rateLimit(ip, 10, 60000); // 10 requests per minute
+}
 
 export async function GET(request: NextRequest) {
+  const limit = checkRateLimit(request);
+  if (!limit.success) {
+    return NextResponse.json({ error: "Too Many Requests" }, { status: 429 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId");
@@ -35,6 +46,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const limit = checkRateLimit(request);
+  if (!limit.success) {
+    return NextResponse.json({ error: "Too Many Requests" }, { status: 429 });
+  }
+
   try {
     const { projectId } = await request.json();
 
