@@ -167,8 +167,8 @@ async function callOpenRouter(prompt: string, opts: GenerateOptions = {}): Promi
 
   const isMultimodal = hasMedia(opts);
 
-  // We use a completely free model on OpenRouter as the absolute fallback.
-  const model = opts.openRouterModel ?? 'nvidia/nemotron-3-nano-30b-a3b:free';
+  // We use the auto-routing free endpoint which dynamically picks available free models with vision support
+  const model = opts.openRouterModel ?? 'openrouter/free';
 
   const messages: any[] = [];
   if (opts.systemPrompt) {
