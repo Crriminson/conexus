@@ -168,8 +168,7 @@ async function callOpenRouter(prompt: string, opts: GenerateOptions = {}): Promi
   const isMultimodal = hasMedia(opts);
 
   // We use a completely free model on OpenRouter as the absolute fallback.
-  // If multimodal, we must pick a model that supports vision (like Gemini free tier on OpenRouter).
-  const model = opts.openRouterModel ?? (isMultimodal ? 'google/gemini-2.0-flash-lite-preview-02-05:free' : 'google/gemma-2-9b-it:free');
+  const model = opts.openRouterModel ?? 'nvidia/nemotron-3-nano-30b-a3b:free';
 
   const messages: any[] = [];
   if (opts.systemPrompt) {
