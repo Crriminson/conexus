@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 
 import { motion } from "framer-motion"
 import { ActivitySquare, ArrowRight, ShieldCheck, FileText, CheckCircle, Upload, Layers } from "lucide-react"
@@ -11,12 +12,16 @@ export default function LandingPage() {
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded bg-primary text-primary-foreground">
-              <ActivitySquare className="h-5 w-5" />
-            </div>
-            <span className="text-xl font-bold tracking-tight">CONEXUS</span>
-          </div>
+          <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
+            <Image
+              src="/conexus-logo.png"
+              alt="Conexus logo"
+              width={1024}
+              height={241}
+              className="h-8 w-auto"
+              priority
+            />
+          </Link>
           <nav className="hidden md:flex gap-6">
             <a href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground">Features</a>
             <a href="#workflow" className="text-sm font-medium text-muted-foreground hover:text-foreground">Workflow</a>
@@ -176,9 +181,14 @@ export default function LandingPage() {
 
       <footer className="bg-slate-900 py-12 text-slate-400">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-2">
-            <ActivitySquare className="h-5 w-5 text-primary" />
-            <span className="text-lg font-bold tracking-tight text-white">CONEXUS</span>
+          <div className="flex items-center">
+            <Image
+              src="/conexus-logo.png"
+              alt="Conexus logo"
+              width={1024}
+              height={241}
+              className="h-8 w-auto"
+            />
           </div>
           <p className="text-sm">© {new Date().getFullYear()} Conexus Platform. All rights reserved.</p>
           <div className="flex gap-4">

@@ -46,10 +46,10 @@ export function AuthSidebar() {
       <div className="relative z-10">
         <Link href="/" className="flex items-center gap-3 w-fit hover:opacity-80 transition-opacity">
           <Image
-            src="/conexus-logo.svg"
+            src="/conexus-logo.png"
             alt="Conexus logo"
-            width={180}
-            height={36}
+            width={1024}
+            height={241}
             className="h-10 w-auto"
           />
         </Link>
