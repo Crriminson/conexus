@@ -1,5 +1,4 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { encodeBase64 } from 'jsr:@std/encoding@1/base64'
 import { callLLM } from '../_shared/callLLM.ts'
 
 const corsHeaders = {
@@ -189,13 +188,13 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: `Failed to download document: ${downloadError?.message}` }, 500)
   }
 
-  const base64Data = encodeBase64(new Uint8Array(await fileBlob.arrayBuffer()))
+  const fileBytes = new Uint8Array(await fileBlob.arrayBuffer())
 
   let rawText: string
   try {
     rawText = await callLLM({
       prompt: buildExtractionPrompt(document.filename),
-      file: { data: base64Data, mimeType: fileBlob.type || 'application/pdf' },
+      file: { bytes: fileBytes, mimeType: fileBlob.type || 'application/pdf' },
       responseMimeType: 'application/json',
     })
   } catch (err) {
