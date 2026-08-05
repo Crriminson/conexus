@@ -30,6 +30,8 @@ export interface GenerateOptions {
   geminiModel?: string;
   /** Groq model to use (default: llama-3.3-70b-versatile) */
   groqModel?: string;
+  /** OpenRouter model to use (default: google/gemma-2-9b-it:free) */
+  openRouterModel?: string;
   /** Multimodal attachments — images, PDFs. Gemini-only. */
   media?: MediaInput[];
   /** System instruction prepended to the conversation */
@@ -46,7 +48,7 @@ export interface GenerateResult {
   /** The generated text */
   text: string;
   /** Which provider produced the result */
-  provider: 'gemini' | 'groq';
+  provider: 'gemini' | 'groq' | 'openrouter';
   /** The model ID that was used */
   model: string;
 }
@@ -157,13 +159,72 @@ async function callGroq(prompt: string, opts: GenerateOptions = {}): Promise<Gen
   return { text, provider: 'groq', model };
 }
 
+// ─── OpenRouter Call (Third Fallback) ─────────────────────────────────────────
+
+async function callOpenRouter(prompt: string, opts: GenerateOptions = {}): Promise<GenerateResult> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error('Missing OPENROUTER_API_KEY environment variable');
+
+  const isMultimodal = hasMedia(opts);
+
+  // We use the auto-routing free endpoint which dynamically picks available free models with vision support
+  const model = opts.openRouterModel ?? 'openrouter/free';
+
+  const messages: any[] = [];
+  if (opts.systemPrompt) {
+    messages.push({ role: 'system', content: opts.systemPrompt });
+  }
+
+  // Format content for OpenAI-compatible vision if media exists
+  let userContent: any = prompt;
+  if (isMultimodal && opts.media) {
+    userContent = [{ type: 'text', text: prompt }];
+    for (const m of opts.media) {
+      userContent.push({
+        type: 'image_url',
+        image_url: {
+          url: `data:${m.mimeType};base64,${m.data}`
+        }
+      });
+    }
+  }
+
+  messages.push({ role: 'user', content: userContent });
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://conexus.app',
+      'X-Title': 'Conexus IPO Documentation',
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      temperature: opts.temperature ?? 0.7,
+      max_tokens: opts.maxTokens ?? 4096,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
+  }
+
+  const data = await response.json();
+  const text = data.choices?.[0]?.message?.content ?? '';
+
+  return { text, provider: 'openrouter', model };
+}
+
 // ─── Main Entry Point ─────────────────────────────────────────────────────────
 
 /**
- * Generate text using Gemini (primary) with Groq fallback.
+ * Generate text using Gemini (primary) with Groq fallback and OpenRouter 3rd layer.
  *
- * - Text-only: tries Gemini first, falls back to Groq on 429/5xx.
- * - Multimodal (media attached): Gemini only, throws on failure.
+ * - Text-only: tries Gemini first -> Groq (on 429/5xx) -> OpenRouter (on 429/5xx).
+ * - Multimodal (media attached): Gemini first -> skips Groq -> OpenRouter (on 429/5xx).
  */
 export async function generate(
   prompt: string,
@@ -174,14 +235,6 @@ export async function generate(
   try {
     return await callGemini(prompt, opts);
   } catch (geminiError: any) {
-    // If multimodal was requested, we cannot fall back to Groq
-    if (isMultimodal) {
-      throw new Error(
-        `Gemini failed on multimodal request and no fallback is available for media inputs. ` +
-        `Original error: ${geminiError?.message ?? geminiError}`
-      );
-    }
-
     // If explicitly Gemini-only, don't fallback
     if (opts.geminiOnly) {
       throw geminiError;
@@ -192,28 +245,49 @@ export async function generate(
       throw geminiError;
     }
 
+    // If multimodal was requested, Groq (text-only) cannot handle it.
+    // Skip Groq entirely and go straight to OpenRouter.
+    if (isMultimodal) {
+      console.warn(
+        `[llmClient] Gemini failed on multimodal request (${geminiError?.message ?? 'unknown'}), skipping Groq and falling back to OpenRouter.`
+      );
+      return await callOpenRouter(prompt, opts);
+    }
+
     console.warn(
       `[llmClient] Gemini failed (${geminiError?.message ?? 'unknown'}), falling back to Groq`
     );
 
-    return await callGroq(prompt, opts);
+    try {
+      return await callGroq(prompt, opts);
+    } catch (groqError: any) {
+      if (!isRetryable(groqError)) {
+        throw groqError;
+      }
+      console.warn(
+        `[llmClient] Groq failed (${groqError?.message ?? 'unknown'}), falling back to OpenRouter (Free Models)`
+      );
+      return await callOpenRouter(prompt, opts);
+    }
   }
 }
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 
 /**
- * Quick connectivity test for both providers.
+ * Quick connectivity test for all providers.
  * Returns status for each — does NOT throw on individual failures.
  */
 export async function healthCheck(): Promise<{
   gemini: { ok: boolean; message: string };
   groq: { ok: boolean; message: string };
+  openrouter: { ok: boolean; message: string };
 }> {
   const testPrompt = 'Reply with exactly: OK';
 
   let geminiResult = { ok: false, message: '' };
   let groqResult = { ok: false, message: '' };
+  let openRouterResult = { ok: false, message: '' };
 
   try {
     const g = await callGemini(testPrompt, { maxTokens: 10 });
@@ -229,7 +303,33 @@ export async function healthCheck(): Promise<{
     groqResult = { ok: false, message: e?.message ?? String(e) };
   }
 
-  return { gemini: geminiResult, groq: groqResult };
+  try {
+    const o = await callOpenRouter(testPrompt, { maxTokens: 10 });
+    openRouterResult = { ok: true, message: `Model: ${o.model}, Response: ${o.text.slice(0, 50)}` };
+  } catch (e: any) {
+    openRouterResult = { ok: false, message: e?.message ?? String(e) };
+  }
+
+  return { gemini: geminiResult, groq: groqResult, openrouter: openRouterResult };
+}
+
+// ─── Embeddings ───────────────────────────────────────────────────────────────
+
+/**
+ * Generates a 768-dimensional embedding for the given text using Gemini's text-embedding-004.
+ */
+export async function generateEmbedding(text: string): Promise<number[]> {
+  const gemini = getGemini();
+  const response = await gemini.models.embedContent({
+    model: 'gemini-embedding-001',
+    contents: text,
+  });
+
+  if (!response.embeddings || response.embeddings.length === 0 || !response.embeddings[0].values) {
+    throw new Error('Failed to generate embedding: empty response from Gemini');
+  }
+
+  return response.embeddings[0].values;
 }
 
 // ─── Embeddings ───────────────────────────────────────────────────────────────

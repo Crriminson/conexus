@@ -237,6 +237,7 @@ model ICDRCorpus {
   subClause        String?
   title            String
   content          String
+<<<<<<< HEAD
   embedding        Unsupported("vector")?
 }
 
@@ -299,4 +300,7 @@ enum ExportFormat {
   PDF
   DOCX
   XLSX
+=======
+  embedding        Unsupported("vector(3072)")?
+>>>>>>> origin/main
 }
