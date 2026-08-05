@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { NotificationTray } from "./notification-tray";
@@ -93,10 +94,13 @@ export function Sidebar({ className, ...props }: SidebarProps) {
     <div className={cn("flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border", className)} {...props}>
       <div className="flex h-16 items-center px-6 border-b border-sidebar-border">
         <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-sidebar-primary text-sidebar-primary-foreground">
-            <ActivitySquare className="h-5 w-5" />
-          </div>
-          <span className="text-lg font-bold tracking-tight text-white">CONEXUS</span>
+          <Image
+            src="/conexus-logo.png"
+            alt="Conexus logo"
+            width={1024}
+            height={241}
+            className="h-8 w-auto"
+          />
         </Link>
       </div>
       

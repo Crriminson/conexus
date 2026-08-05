@@ -331,3 +331,22 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 
   return response.embeddings[0].values;
 }
+
+// ─── Embeddings ───────────────────────────────────────────────────────────────
+
+/**
+ * Generates a 768-dimensional embedding for the given text using Gemini's text-embedding-004.
+ */
+export async function generateEmbedding(text: string): Promise<number[]> {
+  const gemini = getGemini();
+  const response = await gemini.models.embedContent({
+    model: 'gemini-embedding-001',
+    contents: text,
+  });
+
+  if (!response.embeddings || response.embeddings.length === 0 || !response.embeddings[0].values) {
+    throw new Error('Failed to generate embedding: empty response from Gemini');
+  }
+
+  return response.embeddings[0].values;
+}

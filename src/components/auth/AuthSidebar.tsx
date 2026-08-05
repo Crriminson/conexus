@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -44,10 +45,13 @@ export function AuthSidebar() {
       
       <div className="relative z-10">
         <Link href="/" className="flex items-center gap-3 w-fit hover:opacity-80 transition-opacity">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-            <ActivitySquare className="h-6 w-6" />
-          </div>
-          <span className="text-2xl font-bold tracking-tight">CONEXUS</span>
+          <Image
+            src="/conexus-logo.png"
+            alt="Conexus logo"
+            width={1024}
+            height={241}
+            className="h-10 w-auto"
+          />
         </Link>
       </div>
       

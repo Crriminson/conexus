@@ -1,6 +1,3 @@
-// Conexus IPO Compliance Platform — Prisma Schema
-// https://pris.ly/d/prisma-schema
-
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
@@ -8,105 +5,39 @@ generator client {
 
 datasource db {
   provider   = "postgresql"
-  extensions = [vector]
+  extensions = [uuid_ossp(map: "uuid-ossp", schema: "extensions"), vector]
 }
-
-// ─── Enums ────────────────────────────────────────────────────────────────────
-
-enum ProjectRole {
-  APPLICANT_COMPANY
-  MERCHANT_BANKER
-  CHARTERED_ACCOUNTANT
-  COMPANY_SECRETARY
-  LEGAL_ADVISOR
-  UNDERWRITER
-}
-
-enum MemberStatus {
-  INVITED
-  ACTIVE
-}
-
-enum SectionCategory {
-  COMPANY_PROFILE
-  FINANCIAL
-  LEGAL_RISK
-  SECRETARIAL_COMPLIANCE
-  BUSINESS_OFFER
-}
-
-enum SectionStatus {
-  DRAFT
-  SUBMITTED_FOR_REVIEW
-  CHANGES_REQUESTED
-  APPROVED
-}
-
-enum ValidationSource {
-  GAP_DETECTION
-  VALIDATION_ENGINE
-}
-
-enum ValidationStatus {
-  PASS
-  FAIL
-  FLAGGED_FOR_REVIEW
-}
-
-// Preserved from old schema
-enum DocumentStatus {
-  Draft
-  Uploaded
-  Validated
-  Approved
-  Rejected
-}
-
-enum GapSeverity {
-  Low
-  Medium
-  High
-  Critical
-}
-
-enum ExportFormat {
-  PDF
-  DOCX
-  XLSX
-}
-
-// ─── Models ───────────────────────────────────────────────────────────────────
 
 model User {
   id            String          @id @default(cuid())
   email         String          @unique
   name          String
-  avatarUrl     String? // preserved
+  avatarUrl     String?
   createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt // preserved
-  memberships   ProjectMember[]
+  updatedAt     DateTime        @updatedAt
   notifications Notification[]
+  memberships   ProjectMember[]
 }
 
 model Project {
-  id              String               @id @default(cuid())
+  id              String                 @id @default(cuid())
   name            String
-  companyName     String // preserved
-  description     String? // preserved
+  companyName     String
+  description     String?
   ownerId         String
-  status          String               @default("active")
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt // preserved
-  members         ProjectMember[]
-  companyProfile  CompanyProfile?
-  eligibility     EligibilityAssessment?
-  documents       Document[]
-  sections        DRHPSection[]
-  knowledgeBase   KnowledgeBaseEntry[]
-  gapFlags        GapFlag[]
-  notifications   Notification[]
+  status          String                 @default("active")
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
   auditLogs       AuditLog[]
-  exportArtifacts ExportArtifact[] // preserved
+  companyProfile  CompanyProfile?
+  sections        DRHPSection[]
+  documents       Document[]
+  eligibility     EligibilityAssessment?
+  exportArtifacts ExportArtifact[]
+  gapFlags        GapFlag[]
+  knowledgeBase   KnowledgeBaseEntry[]
+  notifications   Notification[]
+  members         ProjectMember[]
 }
 
 model ProjectMember {
@@ -150,40 +81,40 @@ model EligibilityAssessment {
 
 model Document {
   id           String         @id @default(cuid())
-  title        String // preserved
+  title        String
   projectId    String
   uploadedById String
   fileUrl      String
   fileType     String
-  mimeType     String? // preserved
-  sizeBytes    Int? // preserved
+  mimeType     String?
+  sizeBytes    Int?
   category     String
-  status       DocumentStatus @default(Draft) // preserved
+  status       DocumentStatus @default(Draft)
   ocrStatus    String         @default("pending")
   ocrExtracted Json?
   createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt // preserved
+  updatedAt    DateTime       @updatedAt
   project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model KnowledgeBaseEntry {
   id          String   @id @default(cuid())
   projectId   String
-  sourceType  String // company_profile | ocr | interview | manual
+  sourceType  String
   sourceRefId String?
   fieldKey    String
   fieldValue  String
   confidence  Float?
-  category    String? // preserved from old schema so it doesn't break knowledge-base.tsx
-  content     String? // preserved from old schema so it doesn't break knowledge-base.tsx
+  category    String?
+  content     String?
   createdAt   DateTime @default(now())
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model DRHPSection {
   id                   String               @id @default(cuid())
-  title                String // preserved
-  sectionOrder         Int // preserved
+  title                String
+  sectionOrder         Int
   projectId            String
   sectionKey           String
   category             SectionCategory
@@ -194,8 +125,8 @@ model DRHPSection {
   updatedAt            DateTime             @updatedAt
   project              Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
   versions             DRHPSectionVersion[]
+  gapFlags             GapFlag[]
   validationResults    ValidationResult[]
-  gapFlags             GapFlag[] // preserved
 
   @@unique([projectId, sectionKey])
 }
@@ -215,17 +146,17 @@ model DRHPSectionVersion {
 
 model ValidationResult {
   id                String           @id @default(cuid())
-  sectionId         String? // target made it String, old had String? I'll keep it as String? for safety? No, target is String, but relation was optional. Let's make it String? to preserve `SetNull`.
+  sectionId         String?
   source            ValidationSource
   status            ValidationStatus
   confidenceScore   Float?
   matchedRegulation String?
   explanation       String?
-  rule              String? // preserved
-  passed            Boolean? // preserved
-  message           String? // preserved
+  rule              String?
+  passed            Boolean?
+  message           String?
   createdAt         DateTime         @default(now())
-  section           DRHPSection?     @relation(fields: [sectionId], references: [id], onDelete: SetNull) // preserved
+  section           DRHPSection?     @relation(fields: [sectionId], references: [id])
 }
 
 model GapFlag {
@@ -234,15 +165,15 @@ model GapFlag {
   sectionKey  String
   missingItem String
   status      String       @default("open")
-  title       String? // preserved
-  description String? // preserved
-  severity    GapSeverity  @default(Medium) // preserved
-  resolved    Boolean      @default(false) // preserved
+  title       String?
+  description String?
+  severity    GapSeverity  @default(Medium)
+  resolved    Boolean      @default(false)
   createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt // preserved
+  updatedAt   DateTime     @updatedAt
+  sectionId   String?
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  sectionId   String? // preserved
-  section     DRHPSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull) // preserved
+  section     DRHPSection? @relation(fields: [sectionId], references: [id])
 }
 
 model Notification {
@@ -254,8 +185,8 @@ model Notification {
   relatedEntityId String?
   readStatus      Boolean  @default(false)
   createdAt       DateTime @default(now())
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AuditLog {
@@ -270,7 +201,6 @@ model AuditLog {
   project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
-// Phase 2 — model only, not wired up yet
 model BlockchainRecord {
   id               String   @id @default(cuid())
   sectionVersionId String?
@@ -297,15 +227,80 @@ model PendingInvite {
   email     String
   projectId String
   role      ProjectRole
-  status    String      @default("QUEUED") // QUEUED, SENT, FAILED
+  status    String      @default("QUEUED")
   createdAt DateTime    @default(now())
 }
 
 model ICDRCorpus {
-  id               String                       @id @default(cuid())
+  id               String                 @id @default(cuid())
   regulationNumber String
   subClause        String?
   title            String
   content          String
+<<<<<<< HEAD
+  embedding        Unsupported("vector")?
+}
+
+enum ProjectRole {
+  APPLICANT_COMPANY
+  MERCHANT_BANKER
+  CHARTERED_ACCOUNTANT
+  COMPANY_SECRETARY
+  LEGAL_ADVISOR
+  UNDERWRITER
+}
+
+enum MemberStatus {
+  INVITED
+  ACTIVE
+}
+
+enum SectionCategory {
+  COMPANY_PROFILE
+  FINANCIAL
+  LEGAL_RISK
+  SECRETARIAL_COMPLIANCE
+  BUSINESS_OFFER
+}
+
+enum SectionStatus {
+  DRAFT
+  SUBMITTED_FOR_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+}
+
+enum ValidationSource {
+  GAP_DETECTION
+  VALIDATION_ENGINE
+}
+
+enum ValidationStatus {
+  PASS
+  FAIL
+  FLAGGED_FOR_REVIEW
+}
+
+enum DocumentStatus {
+  Draft
+  Uploaded
+  Validated
+  Approved
+  Rejected
+}
+
+enum GapSeverity {
+  Low
+  Medium
+  High
+  Critical
+}
+
+enum ExportFormat {
+  PDF
+  DOCX
+  XLSX
+=======
   embedding        Unsupported("vector(3072)")?
+>>>>>>> origin/main
 }
