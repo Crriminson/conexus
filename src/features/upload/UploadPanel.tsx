@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useDocuments } from '@/hooks/useDocuments'
 import { useUploadDocument } from '@/hooks/useUploadDocument'
+import { useRunExtraction } from '@/hooks/useRunExtraction'
 
 const STATUS_STYLES: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-800',
@@ -9,16 +10,24 @@ const STATUS_STYLES: Record<string, string> = {
   failed: 'bg-red-100 text-red-800',
 }
 
+const RETRYABLE_STATUSES = new Set(['pending', 'failed'])
+
 export function UploadPanel({ projectId }: { projectId: string }) {
   const { data: documents, isLoading } = useDocuments(projectId)
   const upload = useUploadDocument(projectId)
+  const runExtraction = useRunExtraction(projectId)
   const [isDragOver, setIsDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  function handleFiles(files: FileList | null) {
+  async function handleFiles(files: FileList | null) {
     if (!files) return
     for (const file of Array.from(files)) {
-      upload.mutate(file)
+      try {
+        const document = await upload.mutateAsync(file)
+        runExtraction.mutate(document.id)
+      } catch {
+        // upload.isError already surfaces this in the UI
+      }
     }
   }
 
@@ -62,6 +71,12 @@ export function UploadPanel({ projectId }: { projectId: string }) {
         </p>
       )}
 
+      {runExtraction.isError && (
+        <p className="text-sm text-destructive">
+          Extraction failed: {(runExtraction.error as Error).message}
+        </p>
+      )}
+
       <div className="flex flex-col gap-2">
         {isLoading && <p className="text-sm text-muted-foreground">Loading documents…</p>}
         {documents?.length === 0 && (
@@ -73,13 +88,25 @@ export function UploadPanel({ projectId }: { projectId: string }) {
             className="flex items-center justify-between rounded-md border px-3 py-2"
           >
             <span className="truncate text-sm">{doc.filename}</span>
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                STATUS_STYLES[doc.extraction_status] ?? 'bg-muted text-muted-foreground'
-              }`}
-            >
-              {doc.extraction_status}
-            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  STATUS_STYLES[doc.extraction_status] ?? 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {doc.extraction_status}
+              </span>
+              {RETRYABLE_STATUSES.has(doc.extraction_status) && (
+                <button
+                  type="button"
+                  disabled={runExtraction.isPending}
+                  onClick={() => runExtraction.mutate(doc.id)}
+                  className="text-xs font-medium text-primary underline-offset-2 hover:underline disabled:opacity-50"
+                >
+                  {doc.extraction_status === 'failed' ? 'Retry' : 'Extract'}
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>

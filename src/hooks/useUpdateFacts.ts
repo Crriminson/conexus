@@ -13,7 +13,7 @@ export function useUpdateFacts(projectId: string) {
         .from('projects')
         .update({ facts })
         .eq('id', projectId)
-        .select('id, name, facts, conflicts')
+        .select('id, name, facts, conflicts, merge_events')
         .single()
 
       if (error) throw error

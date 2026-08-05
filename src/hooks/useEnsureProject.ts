@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { emptyIssuerFacts } from '@/types/facts/empty'
 
 export function useEnsureProject() {
   return useQuery({
@@ -16,7 +17,7 @@ export function useEnsureProject() {
 
       const { data: created, error: insertError } = await supabase
         .from('projects')
-        .insert({ name: 'Demo Issuer' })
+        .insert({ name: 'Demo Issuer', facts: emptyIssuerFacts() })
         .select('id')
         .single()
 
