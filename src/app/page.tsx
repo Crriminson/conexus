@@ -144,13 +144,19 @@ export default function LandingPage() {
             
             <div className="mx-auto max-w-5xl">
               <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
-                <div className="group flex flex-col items-center text-center p-6 rounded-2xl bg-white shadow-sm border border-slate-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-2 hover:border-primary/20 cursor-default">
+                <a
+                  href="/docs/eligibility.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex flex-col items-center text-center p-6 rounded-2xl bg-white shadow-sm border border-slate-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-2 hover:border-primary/20 cursor-pointer"
+                  aria-label="Open Eligibility PDF in a new tab"
+                >
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mb-4 transition-transform duration-300 group-hover:scale-110 group-hover:bg-primary group-hover:text-white">
                     <CheckCircle className="h-8 w-8" />
                   </div>
                   <h3 className="text-lg font-semibold text-slate-900 mb-2">1. Eligibility</h3>
                   <p className="text-sm text-slate-600">Assess exchange requirements and financial thresholds upfront.</p>
-                </div>
+                </a>
                 <div className="group flex flex-col items-center text-center p-6 rounded-2xl bg-white shadow-sm border border-slate-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-2 hover:border-primary/20 cursor-default">
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mb-4 transition-transform duration-300 group-hover:scale-110 group-hover:bg-primary group-hover:text-white">
                     <Upload className="h-8 w-8" />

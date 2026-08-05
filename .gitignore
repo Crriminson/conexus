@@ -48,3 +48,18 @@ skills-lock.json
 # Gemini / AntiGravity
 .gemini
 *.log
+
+# Node
+node_modules/
+
+# Python virtual environment
+backend/venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+.env.local
