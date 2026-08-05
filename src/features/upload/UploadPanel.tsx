@@ -48,7 +48,11 @@ export function UploadPanel({ projectId }: { projectId: string }) {
           type="file"
           multiple
           className="hidden"
-          onChange={(event) => handleFiles(event.target.files)}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => {
+            handleFiles(event.target.files)
+            event.target.value = ''
+          }}
         />
       </div>
 
