@@ -8,6 +8,7 @@ Backend/DB: Supabase (Postgres + Auth + Storage)
 - Work proceeds as a sequence of numbered "Phase" prompts, one per message.
 - Each Phase touches only the file(s)/tab it's scoped to — never modify a previous Phase's files unless a Phase explicitly says to.
 - After finishing each Phase, stop and wait for review before continuing to the next.
+- After finishing any task, append a short entry to `docs/PROGRESS.md`: task number, what was built/decided, files touched, anything still outstanding. A few lines, not a transcript — this file is what a fresh session reads instead of a re-explanation.
 
 ## Data model
 - The shared data model lives in `src/types/project.ts`, defined once in Phase 0.

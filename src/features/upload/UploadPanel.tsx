@@ -83,30 +83,32 @@ export function UploadPanel({ projectId }: { projectId: string }) {
           <p className="text-sm text-muted-foreground">No documents uploaded yet.</p>
         )}
         {documents?.map((doc) => (
-          <div
-            key={doc.id}
-            className="flex items-center justify-between rounded-md border px-3 py-2"
-          >
-            <span className="truncate text-sm">{doc.filename}</span>
-            <div className="flex items-center gap-2">
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                  STATUS_STYLES[doc.extraction_status] ?? 'bg-muted text-muted-foreground'
-                }`}
-              >
-                {doc.extraction_status}
-              </span>
-              {RETRYABLE_STATUSES.has(doc.extraction_status) && (
-                <button
-                  type="button"
-                  disabled={runExtraction.isPending}
-                  onClick={() => runExtraction.mutate(doc.id)}
-                  className="text-xs font-medium text-primary underline-offset-2 hover:underline disabled:opacity-50"
+          <div key={doc.id} className="flex flex-col gap-1 rounded-md border px-3 py-2">
+            <div className="flex items-center justify-between">
+              <span className="truncate text-sm">{doc.filename}</span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    STATUS_STYLES[doc.extraction_status] ?? 'bg-muted text-muted-foreground'
+                  }`}
                 >
-                  {doc.extraction_status === 'failed' ? 'Retry' : 'Extract'}
-                </button>
-              )}
+                  {doc.extraction_status}
+                </span>
+                {RETRYABLE_STATUSES.has(doc.extraction_status) && (
+                  <button
+                    type="button"
+                    disabled={runExtraction.isPending}
+                    onClick={() => runExtraction.mutate(doc.id)}
+                    className="text-xs font-medium text-primary underline-offset-2 hover:underline disabled:opacity-50"
+                  >
+                    {doc.extraction_status === 'failed' ? 'Retry' : 'Extract'}
+                  </button>
+                )}
+              </div>
             </div>
+            {doc.extraction_status === 'failed' && doc.extraction_error && (
+              <p className="text-xs text-destructive">{doc.extraction_error}</p>
+            )}
           </div>
         ))}
       </div>

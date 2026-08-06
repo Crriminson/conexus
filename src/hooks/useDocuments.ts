@@ -7,6 +7,7 @@ export interface DocumentRow {
   filename: string
   storage_path: string
   extraction_status: string
+  extraction_error: string | null
 }
 
 export function documentsQueryKey(projectId: string) {
@@ -19,7 +20,7 @@ export function useDocuments(projectId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('documents')
-        .select('id, project_id, filename, storage_path, extraction_status')
+        .select('id, project_id, filename, storage_path, extraction_status, extraction_error')
         .eq('project_id', projectId)
         .order('filename', { ascending: true })
 
@@ -27,5 +28,11 @@ export function useDocuments(projectId: string) {
       return data as DocumentRow[]
     },
     enabled: Boolean(projectId),
+    // Extraction is now async (returns 202, finishes in the background) —
+    // poll while anything is processing so the status list actually updates.
+    refetchInterval: (query) => {
+      const hasProcessing = query.state.data?.some((doc) => doc.extraction_status === 'processing')
+      return hasProcessing ? 3000 : false
+    },
   })
 }

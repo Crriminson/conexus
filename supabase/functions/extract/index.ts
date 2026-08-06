@@ -1,5 +1,8 @@
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { callLLM } from '../_shared/callLLM.ts'
+import { merge } from '../_shared/merge/merge.ts'
+import type { ExtractedFacts } from '../_shared/merge/types.ts'
+import type { IssuerFacts } from '../_shared/factsTypes.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,6 +10,7 @@ const corsHeaders = {
 }
 
 const STORAGE_BUCKET = Deno.env.get('SUPABASE_STORAGE_BUCKET') ?? 'documents'
+const MAX_MERGE_RETRIES = 5
 
 function jsonResponse(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
@@ -80,7 +84,7 @@ function records(source: unknown, key: string, fields: string[]): Record<string,
   })
 }
 
-function coerceExtractedFacts(raw: unknown) {
+function coerceExtractedFacts(raw: unknown): Omit<ExtractedFacts, 'documentId'> {
   const r = raw as Record<string, unknown> | null | undefined
 
   return {
@@ -124,7 +128,7 @@ function coerceExtractedFacts(raw: unknown) {
       'amount',
       'transactionDate',
     ]),
-  }
+  } as Omit<ExtractedFacts, 'documentId'>
 }
 
 function parseModelJson(text: string): unknown {
@@ -139,6 +143,128 @@ function parseModelJson(text: string): unknown {
     return JSON.parse(cleaned)
   } catch {
     return null
+  }
+}
+
+// documentId -> best-effort marker so a killed worker's `beforeunload` can
+// at least try to flag which in-flight documents it was holding. Opportunistic
+// only (Layer 2) — the reaper (pg_cron, Layer 3) is the actual guarantee.
+const inFlight = new Set<string>()
+
+addEventListener('beforeunload', () => {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!supabaseUrl || !serviceRoleKey) return
+
+  for (const documentId of inFlight) {
+    fetch(`${supabaseUrl}/rest/v1/documents?id=eq.${documentId}`, {
+      method: 'PATCH',
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        extraction_status: 'failed',
+        extraction_error: 'Edge function terminated (wall clock exceeded)',
+      }),
+    }).catch(() => {})
+  }
+})
+
+async function markFailed(supabase: SupabaseClient, documentId: string, message: string) {
+  await supabase
+    .from('documents')
+    .update({ extraction_status: 'failed', extraction_error: message })
+    .eq('id', documentId)
+}
+
+// The actual work, run in the background after the request has already
+// returned 202. Persists facts/conflicts/merge_events under optimistic
+// concurrency (`version` column) since concurrent extractions — background
+// tasks today, chunked sub-extractions once that lands — can race on the
+// same project row. A failed run only ever marks the document `failed`;
+// it never partially writes to the project row (each attempt's persist is
+// one .update() call, conditioned on the version it read).
+async function runExtraction(
+  supabase: SupabaseClient,
+  documentId: string,
+  projectId: string,
+  filename: string,
+  storagePath: string,
+) {
+  try {
+    const { data: fileBlob, error: downloadError } = await supabase.storage.from(STORAGE_BUCKET).download(storagePath)
+
+    if (downloadError || !fileBlob) {
+      await markFailed(supabase, documentId, `Failed to download document: ${downloadError?.message}`)
+      return
+    }
+
+    const fileBytes = new Uint8Array(await fileBlob.arrayBuffer())
+
+    const rawText = await callLLM({
+      prompt: buildExtractionPrompt(filename),
+      file: { bytes: fileBytes, mimeType: fileBlob.type || 'application/pdf' },
+      responseMimeType: 'application/json',
+    })
+
+    const parsed = parseModelJson(rawText)
+    if (parsed === null) {
+      await markFailed(supabase, documentId, `Failed to parse model output as JSON: ${rawText.slice(0, 500)}`)
+      return
+    }
+
+    const extracted: ExtractedFacts = { documentId, ...coerceExtractedFacts(parsed) }
+
+    for (let attempt = 0; attempt < MAX_MERGE_RETRIES; attempt++) {
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .select('id, facts, conflicts, merge_events, version')
+        .eq('id', projectId)
+        .single()
+
+      if (projectError || !project) {
+        await markFailed(supabase, documentId, `Project not found: ${projectError?.message ?? projectId}`)
+        return
+      }
+
+      const result = merge(project.facts as IssuerFacts, extracted)
+
+      const { data: updated, error: updateError } = await supabase
+        .from('projects')
+        .update({
+          facts: result.facts,
+          conflicts: [...project.conflicts, ...result.conflicts],
+          merge_events: [...project.merge_events, result.event],
+          version: project.version + 1,
+        })
+        .eq('id', projectId)
+        .eq('version', project.version)
+        .select('id')
+
+      if (updateError) {
+        await markFailed(supabase, documentId, `Failed to persist merged facts: ${updateError.message}`)
+        return
+      }
+
+      if (updated && updated.length > 0) {
+        await supabase
+          .from('documents')
+          .update({ extraction_status: 'complete', extraction_error: null })
+          .eq('id', documentId)
+        return
+      }
+      // version mismatch: another writer updated the project row concurrently.
+      // Loop and retry the merge against a fresh read rather than overwriting it.
+    }
+
+    await markFailed(supabase, documentId, 'Exceeded retries resolving concurrent project updates')
+  } catch (err) {
+    await markFailed(supabase, documentId, err instanceof Error ? err.message : String(err))
+  } finally {
+    inFlight.delete(documentId)
   }
 }
 
@@ -170,42 +296,39 @@ Deno.serve(async (req: Request) => {
   }
   const supabase = createClient(supabaseUrl, serviceRoleKey)
 
-  const { data: document, error: documentError } = await supabase
+  // Single conditional update, not read-then-write: two near-simultaneous
+  // requests for the same document could otherwise both pass a separate
+  // status check before either wrote `processing`, and both would kick off
+  // background tasks. The `.neq()` filter makes claiming atomic.
+  const { data: claimed, error: claimError } = await supabase
     .from('documents')
-    .select('id, filename, storage_path')
-    .eq('id', documentId)
-    .single()
-
-  if (documentError || !document) {
-    return jsonResponse({ error: 'Document not found' }, 404)
-  }
-
-  const { data: fileBlob, error: downloadError } = await supabase.storage
-    .from(STORAGE_BUCKET)
-    .download(document.storage_path)
-
-  if (downloadError || !fileBlob) {
-    return jsonResponse({ error: `Failed to download document: ${downloadError?.message}` }, 500)
-  }
-
-  const fileBytes = new Uint8Array(await fileBlob.arrayBuffer())
-
-  let rawText: string
-  try {
-    rawText = await callLLM({
-      prompt: buildExtractionPrompt(document.filename),
-      file: { bytes: fileBytes, mimeType: fileBlob.type || 'application/pdf' },
-      responseMimeType: 'application/json',
+    .update({
+      extraction_status: 'processing',
+      extraction_started_at: new Date().toISOString(),
+      extraction_error: null,
     })
-  } catch (err) {
-    return jsonResponse({ error: `LLM call failed: ${(err as Error).message}` }, 502)
+    .eq('id', documentId)
+    .neq('extraction_status', 'processing')
+    .select('id, project_id, filename, storage_path')
+
+  if (claimError) {
+    return jsonResponse({ error: `Failed to claim document: ${claimError.message}` }, 500)
   }
 
-  const parsed = parseModelJson(rawText)
-  if (parsed === null) {
-    return jsonResponse({ error: 'Failed to parse model output as JSON', raw: rawText }, 502)
+  const document = claimed?.[0]
+  if (!document) {
+    const { data: existing } = await supabase.from('documents').select('id').eq('id', documentId).maybeSingle()
+    return existing
+      ? jsonResponse({ error: 'Document is already processing' }, 409)
+      : jsonResponse({ error: 'Document not found' }, 404)
   }
 
-  const extracted = coerceExtractedFacts(parsed)
-  return jsonResponse({ documentId, extracted }, 200)
+  inFlight.add(documentId)
+
+  // deno-lint-ignore no-undef
+  EdgeRuntime.waitUntil(
+    runExtraction(supabase, documentId, document.project_id, document.filename, document.storage_path),
+  )
+
+  return jsonResponse({ documentId, status: 'processing' }, 202)
 })
