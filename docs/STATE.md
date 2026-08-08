@@ -23,15 +23,36 @@ Tasks 1–8 of `docs/ARCHITECTURE.md` section 9 are done: scaffold, fact types (
 
 **Timeboxed.** If full chunking isn't working within a couple hours of when this was started, the fallback is a capped version instead: extract up to ~100 pages in one call, documents larger than that ask the user to split the upload — then move on to Task 9 regardless.
 
+## Task 9 — Facts Review screen (built, not yet seen in a browser)
+
+The demo centerpiece per section 9. Built along with its prerequisite:
+
+- **`useUpdateFacts` is now version-aware** — this was the blocking prerequisite, not a side quest. It used to take a whole `IssuerFacts` and blind-`.update({facts})`, so a human edit submitted mid-extraction overwrote the column with a copy read before that extraction merged, silently discarding it. Chunking widened that window to 15+ minutes, and the Review screen is exactly where humans edit during one. Contract is now a **single field-path patch**; each attempt re-reads the row, applies only that field to the fresh copy, and writes conditioned on `version` (same CAS the extract function uses), retrying on conflict. `useResolveConflict` uses the identical discipline since it also writes `facts`.
+- **Path grammar is load-bearing and shared.** `merge()` emits `domain[recordId].field` into `MergeEvent.fieldsWritten` and `FactConflict.fieldPath`, both persisted. `src/lib/facts/fieldPath.ts` parses exactly that grammar; conflict resolution feeds `conflict.fieldPath` straight through it. If the two ever drift, array-field conflicts silently stop resolving and the diff trail goes blank — there's a test pinning this (`path grammar agrees with merge()`), and it was verified against real persisted data, not just fixtures.
+- **Screen** (`src/features/review/`): domains grouped and explicitly ordered; amber highlight below 0.5 confidence (section 4's threshold, which merge() deliberately doesn't branch on); click source → signed URL opened at `#page=N`; click-to-edit inline; Confirm per field; conflict badges with side-by-side Keep current / Accept proposed showing both sources; per-field diff trail assembled from merge events (writes *and* skips — "another document agreed, we kept yours" is the reassurance a reviewer wants).
+- Accepting a proposed value marks the field `edited`, not `ai`, so a later extraction proposing something else raises a fresh conflict instead of silently overwriting a human decision.
+
+**Not yet verified in a real browser** — this session's sandbox can't reach external hosts from Chromium (see environment notes below), so the screen has a clean `tsc`/`vitest`/`vite build` and its path grammar checked against live data, but nobody has clicked it. First thing to do next session: run `npm run dev`, open `/project` → Facts Review, and exercise confirm / edit / source-link / conflict resolution against the real extracted facts.
+
 ## Exact next action
 
-1. Build chunking per the three decisions above, in `supabase/functions/extract/`. Split the source PDF into 20-page sub-documents (in-memory, e.g. via `pdf-lib`), extract each sequentially, remap each chunk's `sourcePage` back to the original document's page numbers before merging, merge immediately after each chunk completes (reusing the existing read-merge-write optimistic-concurrency loop), and track per-document progress (needs new columns — something like `extraction_total_chunks`/`extraction_completed_chunks`) so the UI can show real progress later.
-2. Deploy and re-verify on the real DRHP the same way this round was verified — via direct API calls if the browser-through-proxy limitation noted below is still in effect, otherwise via the actual UI.
-3. If the couple-hour timebox is hit first: fall back to the capped-at-~100-pages version, ship that, move to Task 9 (Facts Review screen) instead.
+1. **Open the Facts Review screen in a real browser and use it.** `npm run dev` → `/project` → Facts Review tab. Exercise confirm, inline edit, source link (should open the chunk PDF at the cited page), and — if any exist — conflict resolution. This is the one thing built this session that no human has actually looked at, and it's the demo centerpiece.
+2. **Finish the stalled extraction when Gemini quota allows.** Document `9c87d13e-32a1-417b-8c79-125c6823f5ee` is at 19/26. Just re-invoke `/extract` with its id — it resumes at chunk 20, no re-extraction cost. That fills in the remaining ~7 chunks of facts.
+3. Then continue the roadmap: Task 10 (`src/lib/eligibility/`) or Task 11 (`src/lib/templates/`).
+
+A conflict has never actually been observed end-to-end, because conflicts only raise against `confirmed`/`edited` fields and nothing had been confirmed until this screen existed. To see the conflict UI work: confirm a field, then re-run extraction on a document that proposes a different value for it.
+
+## Open items — noted, not acted on
+
+These are known and deliberately parked. Don't treat them as bugs to fix on sight; they need a human call or an external unblock.
+
+1. **Gemini quota is the hard blocker on full extraction.** A real run reached chunk 19/26 and stopped on HTTP 429 (daily quota exhausted). Nothing in the code can fix this — it needs either a quota reset or billing enabled on the key. The document is resumable: retrying picks up at chunk 20, so no re-extraction cost once quota is back.
+2. **Possible over-extraction on promoters / related parties.** The 19-chunk run produced 15 promoters and 78 related-party transactions, some sparse (`din`/`panOrId` null, name sourced to p.1). That's high enough to suspect the prompt is over-eager or that natural-key matching isn't collapsing records that should be one. It's an extraction-accuracy question, not a pipeline bug — the Review screen now surfaces exactly this, so judge it there before changing the prompt.
+3. **Test artifacts still in the project.** The e2e runs left `documents` rows and ~26 chunk objects per run under `e2e-test/` in Storage, plus the facts they merged into the singleton project. Fine for now (they're what makes the Review screen non-empty), but they are not a curated demo dataset — Task 15 will want a clean one.
 
 ## Open decisions — need a human call, not yet made
 
-- **`useUpdateFacts` (Task 4) is not version-aware.** It does a blind `.update({facts})` with no optimistic-concurrency check, unlike the extraction path. Not fixed because it currently takes a full-facts replacement with no notion of which field changed — a real fix means changing its call contract to a single field-path patch, which is properly Task 9's (Facts Review screen) concern. Until Task 9 exists, a human edit racing a concurrent background extraction can silently lose the extraction's write to the `facts` column specifically (not `conflicts`/`merge_events`/`version`, which that call doesn't touch). Chunking makes this more likely to matter sooner, since a chunked extraction now holds a document in `processing` for several minutes instead of ~1, widening the race window — still not fixed here, but don't build Task 9 without addressing this.
+- *(none currently — chunking strategy and the `useUpdateFacts` concurrency fix are both resolved; see below.)*
 
 ## Environment notes for whoever runs this next
 

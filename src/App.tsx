@@ -1,9 +1,19 @@
+import { useState } from 'react'
 import { Redirect, Route, Switch } from 'wouter'
 import { useEnsureProject } from '@/hooks/useEnsureProject'
 import { UploadPanel } from '@/features/upload/UploadPanel'
+import { FactsReview } from '@/features/review/FactsReview'
+
+const TABS = [
+  { id: 'documents', label: 'Documents' },
+  { id: 'review', label: 'Facts Review' },
+] as const
+
+type TabId = (typeof TABS)[number]['id']
 
 function ProjectPage() {
   const { data: projectId, isLoading, isError, error } = useEnsureProject()
+  const [tab, setTab] = useState<TabId>('documents')
 
   if (isLoading) {
     return (
@@ -26,7 +36,27 @@ function ProjectPage() {
   return (
     <div className="flex min-h-screen flex-col items-center gap-8 p-10">
       <h1 className="text-2xl font-semibold">Project</h1>
-      <UploadPanel projectId={projectId} />
+
+      <div className="flex gap-1 rounded-lg border p-1">
+        {TABS.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setTab(id)}
+            className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
+              tab === id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'documents' ? (
+        <UploadPanel projectId={projectId} />
+      ) : (
+        <FactsReview projectId={projectId} />
+      )}
     </div>
   )
 }

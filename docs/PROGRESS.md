@@ -97,3 +97,36 @@ Deployed `extract` (v3 → v4) and deleted `wallclock-probe` via the Supabase **
 3. **Merge each chunk immediately after it completes**, not batched — isolates a failed chunk's damage to just that chunk, and gives the UI a real progress signal.
 
 Timeboxed: if full chunking isn't working within a couple hours, fall back to a capped version (extract up to ~100 pages in one call, larger documents ask the user to split the upload) and move on to Task 9 instead.
+
+## Chunking — built, after a second platform limit forced a redesign
+
+**Attempt 1 (server-side split) failed on a limit nobody had found yet.** Split the PDF with `pdf-lib` inside the extract function; it died in ~2s. Function logs gave the real reason — `"reason": "CPUTime", cpu_time_used: 2001` — a **~2s CPU-time budget, entirely separate from and far stricter than the ~150s wall-clock ceiling** the previous entry was about. Merely `PDFDocument.load()`-ing an 8.35MB/503-page PDF to read its page count exhausted it before any Gemini call. Unfixable by chunking: chunk 0 still has to parse the whole source once.
+
+**Attempt 2 (client-side split) works.** The browser has no CPU budget, so `useUploadDocument` now splits the PDF into 20-page chunks at upload time, uploads each as its own Storage object, and records a `chunk_plan` on the document row. The edge function never touches PDF structure — it downloads an already-chunk-sized file and forwards bytes to Gemini. Each chunk runs in its own invocation via self-triggered continuation (fresh wall-clock budget each), merging immediately on completion.
+
+**Verified end-to-end on the real 503-page DRHP: 19 of 26 chunks merged** before hitting a Gemini daily quota (429 — account limit, not a design failure).
+
+| | single-shot | chunked |
+|---|---|---|
+| fact leaves filled | 8 / 18 | **523 / 621** |
+| promoters / litigation / RPTs | 0 / 0 / 0 | **15 / 23 / 78** |
+| `projects.version` | 0 | **19** (one clean bump per chunk) |
+
+`sourcePage` remap verified: facts cite pages 181, 240, 339, 362, 371 — not 1-20, which is what a broken offset would produce. `conflicts: 0` is **correct**, not a gap: per section 4 conflicts only raise against `confirmed`/`edited`, and every field was `ai`. Rising `skipped` counts in later merge events (e.g. `written=39 skipped=50`) show the precedence table working.
+
+**Two gaps the 429 exposed, both fixed:** retry now **resumes from the last merged chunk** instead of restarting at 0 (which would re-burn the quota that just failed it — verified: retry returned `resumedFrom: 19`), and transient 429/5xx now **requeue the same chunk** in a fresh invocation (3 attempts, backoff sleeping inside the retry's own invocation so it can't eat the scheduler's budget) instead of failing the document.
+
+**Files:** `supabase/functions/extract/index.ts` (rewritten twice), `src/hooks/useUploadDocument.ts`, `src/hooks/useDocuments.ts`, `src/features/upload/UploadPanel.tsx`, migrations `20260808000000_extraction_chunk_progress.sql`, `20260808000100_document_chunk_plan.sql`.
+**Outstanding:** Gemini quota blocks a clean 26/26; possible over-extraction on promoters/RPTs to judge in the Review screen.
+
+## Task 9 — Facts Review screen (+ the useUpdateFacts concurrency fix)
+
+**Prerequisite first: `useUpdateFacts` is now version-aware.** It took a whole `IssuerFacts` and blind-`.update({facts})`, so a human edit submitted mid-extraction overwrote the column with a copy read *before* that extraction merged — silently discarding it. Chunking widened the window to 15+ minutes and this screen is exactly where humans edit during one. Fixed as the previous entries said it had to be: the contract is now a **single field-path patch**, and each attempt re-reads the row, applies only that field to the fresh copy, and writes conditioned on `version` (`.eq('version', …)`, the same CAS the extract function uses), retrying on mismatch. Untouched fields therefore keep whatever a concurrent merge just wrote. `useResolveConflict` uses identical discipline — it writes `facts` too when a proposal is accepted.
+
+**A real bug caught before shipping:** `merge()` emits paths as `promoters[<id>].name` (bracket form) into `MergeEvent.fieldsWritten` and `FactConflict.fieldPath`, both already persisted. The first draft of `fieldPath.ts` parsed `promoters.<id>.name` — every array-field conflict would have thrown on resolve and the diff trail would have silently shown nothing. Aligned to merge's grammar, pinned with a test (`path grammar agrees with merge()`), and checked against live persisted data: a generated path matched a real `fieldsWritten` entry exactly.
+
+**Built:** `src/lib/facts/fieldPath.ts` (get/set/human-edit, pure, 15 tests), `src/hooks/useUpdateFacts.ts` (rewritten), `useResolveConflict.ts`, `useOpenSource.ts` (signed URL + `#page=N`), `src/features/review/{FactsReview,FieldRow,ConflictCard,DiffTrail}.tsx`, tab nav in `App.tsx`.
+
+Screen covers section 9's list: domains grouped and explicitly ordered, amber below 0.5 confidence, click-source-opens-document-at-page, inline edit, Confirm per field, conflict badges with side-by-side Keep current / Accept proposed both showing sources, and the diff trail from merge events. The trail shows **skips as well as writes** — "another document mentioned this and we kept yours" is the reassurance a reviewer actually wants. Accepting a proposal marks the field `edited`, not `ai`, so a later extraction disagreeing raises a fresh conflict rather than silently overwriting a human decision.
+
+**Outstanding:** 33 tests pass, `tsc` and `vite build` clean, path grammar verified against live data — but **nobody has opened this in a browser** (this session's Chromium can't reach external hosts through the sandbox proxy). No conflict has been observed end-to-end either, since conflicts require a `confirmed`/`edited` field and nothing was confirmed before this screen existed.
