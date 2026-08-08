@@ -8,6 +8,8 @@ export interface DocumentRow {
   storage_path: string
   extraction_status: string
   extraction_error: string | null
+  extraction_total_chunks: number | null
+  extraction_completed_chunks: number
 }
 
 export function documentsQueryKey(projectId: string) {
@@ -20,7 +22,9 @@ export function useDocuments(projectId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('documents')
-        .select('id, project_id, filename, storage_path, extraction_status, extraction_error')
+        .select(
+          'id, project_id, filename, storage_path, extraction_status, extraction_error, extraction_total_chunks, extraction_completed_chunks',
+        )
         .eq('project_id', projectId)
         .order('filename', { ascending: true })
 

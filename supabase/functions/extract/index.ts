@@ -12,6 +12,24 @@ const corsHeaders = {
 const STORAGE_BUCKET = Deno.env.get('SUPABASE_STORAGE_BUCKET') ?? 'documents'
 const MAX_MERGE_RETRIES = 5
 
+// Chunk plan is computed and the PDF physically split entirely client-side
+// at upload time (see src/hooks/useUploadDocument.ts) — NOT here. First
+// attempt did the splitting in this function via pdf-lib and it died in
+// ~2s, not from the ~150s wall-clock ceiling we'd spent effort verifying,
+// but from a separate, much stricter CPU-time budget (~2000ms, confirmed
+// via function_logs: `"reason": "CPUTime"`). Just loading an 8MB/
+// several-hundred-page PDF to read its page count blew that budget before
+// a single Gemini call was even made — true regardless of chunk count,
+// since chunk 0 still needs the full source parsed once. The browser has
+// no such budget, so this function now never touches PDF structure: it
+// downloads an already-chunk-sized file and forwards its bytes to Gemini.
+interface ChunkPlanEntry {
+  index: number
+  startPage: number
+  endPage: number
+  storagePath: string
+}
+
 function jsonResponse(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
@@ -19,8 +37,13 @@ function jsonResponse(body: unknown, status: number) {
   })
 }
 
-function buildExtractionPrompt(filename: string): string {
-  return `You are extracting structured facts from an IPO prospectus (DRHP) document titled "${filename}" for regulatory compliance review.
+function buildExtractionPrompt(filename: string, range: { startPage: number; endPage: number; totalPages: number }): string {
+  const scopeNote =
+    range.totalPages > range.endPage - range.startPage + 1
+      ? `\n\nThis is a PARTIAL EXCERPT — pages ${range.startPage}-${range.endPage} of a larger ${range.totalPages}-page document, re-paginated to start at page 1. When reporting "sourcePage", use the page number AS IT APPEARS IN THIS EXCERPT (1 to ${range.endPage - range.startPage + 1}), not the original document's page number — the caller remaps it. Facts about promoters, litigation, or related parties may be introduced in a different excerpt than this one; only report what's visible here. Do not treat absence in this excerpt as evidence a fact doesn't exist elsewhere in the document.`
+      : ''
+
+  return `You are extracting structured facts from an IPO prospectus (DRHP) document titled "${filename}" for regulatory compliance review.${scopeNote}
 
 Extract ONLY facts that are explicitly present in the document. Never guess, infer, or fabricate a value that is not clearly stated. If a fact cannot be found, set its "value" to null and its "confidence" to null.
 
@@ -131,6 +154,40 @@ function coerceExtractedFacts(raw: unknown): Omit<ExtractedFacts, 'documentId'> 
   } as Omit<ExtractedFacts, 'documentId'>
 }
 
+// Chunked excerpts are re-paginated starting at 1 (see buildExtractionPrompt),
+// so the model's sourcePage is relative to the excerpt, not the original
+// document. Shift every non-null sourcePage back into the original
+// document's page numbers before this chunk's facts ever reach merge() —
+// provenance ("source: p.14") would otherwise point at the wrong page for
+// every chunk after the first.
+function shiftSourcePages(facts: Omit<ExtractedFacts, 'documentId'>, offset: number): Omit<ExtractedFacts, 'documentId'> {
+  if (offset === 0) return facts
+
+  const shiftLeaf = (l: ExtractedLeaf): ExtractedLeaf =>
+    l.sourcePage === null ? l : { ...l, sourcePage: l.sourcePage + offset }
+
+  const shiftGroup = (group: Record<string, ExtractedLeaf>): Record<string, ExtractedLeaf> => {
+    const out: Record<string, ExtractedLeaf> = {}
+    for (const key of Object.keys(group)) out[key] = shiftLeaf(group[key])
+    return out
+  }
+
+  // Same loose-cast-at-the-boundary style as coerceExtractedFacts above:
+  // the named domain interfaces (ExtractedCompanyFacts etc.) are
+  // structurally just string-keyed ExtractedLeaf records, but TypeScript
+  // won't infer that without an index signature they deliberately don't have.
+  const asGroup = (value: unknown) => shiftGroup(value as Record<string, ExtractedLeaf>)
+
+  return {
+    company: asGroup(facts.company),
+    financials: asGroup(facts.financials),
+    capitalStructure: asGroup(facts.capitalStructure),
+    promoters: facts.promoters.map((p) => asGroup(p)),
+    litigation: facts.litigation.map((l) => asGroup(l)),
+    relatedParties: facts.relatedParties.map((p) => asGroup(p)),
+  } as Omit<ExtractedFacts, 'documentId'>
+}
+
 function parseModelJson(text: string): unknown {
   let cleaned = text.trim()
   if (cleaned.startsWith('```')) {
@@ -167,7 +224,7 @@ addEventListener('beforeunload', () => {
       },
       body: JSON.stringify({
         extraction_status: 'failed',
-        extraction_error: 'Edge function terminated (wall clock exceeded)',
+        extraction_error: 'Edge function terminated (wall clock or CPU time exceeded)',
       }),
     }).catch(() => {})
   }
@@ -180,87 +237,188 @@ async function markFailed(supabase: SupabaseClient, documentId: string, message:
     .eq('id', documentId)
 }
 
-// The actual work, run in the background after the request has already
-// returned 202. Persists facts/conflicts/merge_events under optimistic
-// concurrency (`version` column) since concurrent extractions — background
-// tasks today, chunked sub-extractions once that lands — can race on the
-// same project row. A failed run only ever marks the document `failed`;
-// it never partially writes to the project row (each attempt's persist is
-// one .update() call, conditioned on the version it read).
-async function runExtraction(
+async function markComplete(supabase: SupabaseClient, documentId: string) {
+  await supabase
+    .from('documents')
+    .update({ extraction_status: 'complete', extraction_error: null })
+    .eq('id', documentId)
+}
+
+// One read-merge-write attempt per loop iteration, retried on optimistic-
+// concurrency conflict. Each chunk of each document calls this immediately
+// after its own Gemini call returns (human call: merge per chunk, not
+// batched — a failed chunk shouldn't cost the document its already-merged
+// work, and it gives real progress to show). A failed attempt writes
+// nothing; there is no partial merge.
+async function persistChunkFacts(
+  supabase: SupabaseClient,
+  projectId: string,
+  extracted: ExtractedFacts,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  for (let attempt = 0; attempt < MAX_MERGE_RETRIES; attempt++) {
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id, facts, conflicts, merge_events, version')
+      .eq('id', projectId)
+      .single()
+
+    if (projectError || !project) {
+      return { ok: false, error: `Project not found: ${projectError?.message ?? projectId}` }
+    }
+
+    const result = merge(project.facts as IssuerFacts, extracted)
+
+    const { data: updated, error: updateError } = await supabase
+      .from('projects')
+      .update({
+        facts: result.facts,
+        conflicts: [...project.conflicts, ...result.conflicts],
+        merge_events: [...project.merge_events, result.event],
+        version: project.version + 1,
+      })
+      .eq('id', projectId)
+      .eq('version', project.version)
+      .select('id')
+
+    if (updateError) {
+      return { ok: false, error: `Failed to persist merged facts: ${updateError.message}` }
+    }
+
+    if (updated && updated.length > 0) {
+      return { ok: true }
+    }
+    // version mismatch: another writer updated the project row concurrently.
+    // Loop and retry the merge against a fresh read rather than overwriting it.
+  }
+
+  return { ok: false, error: 'Exceeded retries resolving concurrent project updates' }
+}
+
+function selfExtractUrl(): string {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')
+  return `${supabaseUrl}/functions/v1/extract`
+}
+
+// Fires the next chunk as a brand-new HTTP invocation rather than looping
+// in-process, so each chunk's Gemini call gets a fresh wall-clock budget
+// (the ~150s ceiling applies per invocation — confirmed by direct
+// measurement). Awaited only long enough to get the 202 acknowledging the
+// next invocation started, not that chunk's own completion.
+async function triggerContinuation(documentId: string, chunkIndex: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!serviceRoleKey) return { ok: false, error: 'SUPABASE_SERVICE_ROLE_KEY not set, cannot trigger continuation' }
+
+  try {
+    const res = await fetch(selfExtractUrl(), {
+      method: 'POST',
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ documentId, _continuation: { chunkIndex } }),
+    })
+    if (res.status !== 202) {
+      return { ok: false, error: `Continuation call returned ${res.status}: ${await res.text()}` }
+    }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: `Continuation call failed: ${err instanceof Error ? err.message : String(err)}` }
+  }
+}
+
+// Processes exactly one chunk: download its already-page-range-sized PDF
+// (split client-side at upload time, see the module comment above — this
+// function never parses PDF structure), one Gemini call, merge immediately,
+// then either trigger the next chunk's invocation or mark the document
+// complete. Used identically for the first chunk and every continuation —
+// there is no separate "entry" processing path anymore, since there's
+// nothing left to compute server-side before chunk 0 that isn't already
+// true for every other chunk.
+async function processChunk(
   supabase: SupabaseClient,
   documentId: string,
   projectId: string,
   filename: string,
-  storagePath: string,
+  chunkPlan: ChunkPlanEntry[],
+  chunkIndex: number,
 ) {
+  inFlight.add(documentId)
   try {
-    const { data: fileBlob, error: downloadError } = await supabase.storage.from(STORAGE_BUCKET).download(storagePath)
-
-    if (downloadError || !fileBlob) {
-      await markFailed(supabase, documentId, `Failed to download document: ${downloadError?.message}`)
+    if (chunkIndex >= chunkPlan.length) {
+      // Shouldn't happen (continuation only fires while chunks remain) but
+      // don't fail an otherwise-fully-merged document over it.
+      await markComplete(supabase, documentId)
       return
     }
 
-    const fileBytes = new Uint8Array(await fileBlob.arrayBuffer())
+    const info = chunkPlan[chunkIndex]
+    const totalPages = chunkPlan[chunkPlan.length - 1].endPage
+
+    const { data: fileBlob, error: downloadError } = await supabase.storage.from(STORAGE_BUCKET).download(info.storagePath)
+    if (downloadError || !fileBlob) {
+      await markFailed(
+        supabase,
+        documentId,
+        `Chunk ${chunkIndex + 1}/${chunkPlan.length}: failed to download ${info.storagePath}: ${downloadError?.message}`,
+      )
+      return
+    }
+    const chunkBytes = new Uint8Array(await fileBlob.arrayBuffer())
 
     const rawText = await callLLM({
-      prompt: buildExtractionPrompt(filename),
-      file: { bytes: fileBytes, mimeType: fileBlob.type || 'application/pdf' },
+      prompt: buildExtractionPrompt(filename, { startPage: info.startPage, endPage: info.endPage, totalPages }),
+      file: { bytes: chunkBytes, mimeType: 'application/pdf' },
       responseMimeType: 'application/json',
     })
 
     const parsed = parseModelJson(rawText)
     if (parsed === null) {
-      await markFailed(supabase, documentId, `Failed to parse model output as JSON: ${rawText.slice(0, 500)}`)
+      await markFailed(
+        supabase,
+        documentId,
+        `Chunk ${chunkIndex + 1}/${chunkPlan.length} (pages ${info.startPage}-${info.endPage}): failed to parse model output as JSON: ${rawText.slice(0, 500)}`,
+      )
       return
     }
 
-    const extracted: ExtractedFacts = { documentId, ...coerceExtractedFacts(parsed) }
+    const shifted = shiftSourcePages(coerceExtractedFacts(parsed), info.startPage - 1)
+    const extracted: ExtractedFacts = { documentId, ...shifted }
 
-    for (let attempt = 0; attempt < MAX_MERGE_RETRIES; attempt++) {
-      const { data: project, error: projectError } = await supabase
-        .from('projects')
-        .select('id, facts, conflicts, merge_events, version')
-        .eq('id', projectId)
-        .single()
-
-      if (projectError || !project) {
-        await markFailed(supabase, documentId, `Project not found: ${projectError?.message ?? projectId}`)
-        return
-      }
-
-      const result = merge(project.facts as IssuerFacts, extracted)
-
-      const { data: updated, error: updateError } = await supabase
-        .from('projects')
-        .update({
-          facts: result.facts,
-          conflicts: [...project.conflicts, ...result.conflicts],
-          merge_events: [...project.merge_events, result.event],
-          version: project.version + 1,
-        })
-        .eq('id', projectId)
-        .eq('version', project.version)
-        .select('id')
-
-      if (updateError) {
-        await markFailed(supabase, documentId, `Failed to persist merged facts: ${updateError.message}`)
-        return
-      }
-
-      if (updated && updated.length > 0) {
-        await supabase
-          .from('documents')
-          .update({ extraction_status: 'complete', extraction_error: null })
-          .eq('id', documentId)
-        return
-      }
-      // version mismatch: another writer updated the project row concurrently.
-      // Loop and retry the merge against a fresh read rather than overwriting it.
+    const persisted = await persistChunkFacts(supabase, projectId, extracted)
+    if (!persisted.ok) {
+      await markFailed(
+        supabase,
+        documentId,
+        `Chunk ${chunkIndex + 1}/${chunkPlan.length} (pages ${info.startPage}-${info.endPage}): ${persisted.error}`,
+      )
+      return
     }
 
-    await markFailed(supabase, documentId, 'Exceeded retries resolving concurrent project updates')
+    // extraction_started_at doubles as "last progress" for the pg_cron
+    // reaper's staleness check (documents.processing past 5 minutes with no
+    // update gets reaped). It's only set once at claim time otherwise — a
+    // legitimate multi-chunk document can easily run past 5 minutes total,
+    // so each chunk boundary has to refresh it or the reaper would kill an
+    // actively-progressing extraction, not just a genuinely stuck one.
+    await supabase
+      .from('documents')
+      .update({ extraction_completed_chunks: chunkIndex + 1, extraction_started_at: new Date().toISOString() })
+      .eq('id', documentId)
+
+    if (chunkIndex + 1 >= chunkPlan.length) {
+      await markComplete(supabase, documentId)
+      return
+    }
+
+    const continued = await triggerContinuation(documentId, chunkIndex + 1)
+    if (!continued.ok) {
+      await markFailed(
+        supabase,
+        documentId,
+        `Chunk ${chunkIndex + 1}/${chunkPlan.length} merged, but failed to start chunk ${chunkIndex + 2}/${chunkPlan.length}: ${continued.error}`,
+      )
+    }
   } catch (err) {
     await markFailed(supabase, documentId, err instanceof Error ? err.message : String(err))
   } finally {
@@ -278,9 +436,11 @@ Deno.serve(async (req: Request) => {
   }
 
   let documentId: string | undefined
+  let continuation: { chunkIndex: number } | undefined
   try {
     const body = await req.json()
     documentId = body?.documentId
+    continuation = body?._continuation
   } catch {
     return jsonResponse({ error: 'Invalid JSON body' }, 400)
   }
@@ -296,20 +456,54 @@ Deno.serve(async (req: Request) => {
   }
   const supabase = createClient(supabaseUrl, serviceRoleKey)
 
-  // Single conditional update, not read-then-write: two near-simultaneous
-  // requests for the same document could otherwise both pass a separate
-  // status check before either wrote `processing`, and both would kick off
-  // background tasks. The `.neq()` filter makes claiming atomic.
+  // Internal continuation call (self-triggered from processChunk, see
+  // triggerContinuation) — the document is already `processing` from the
+  // entry call's atomic claim, so there's nothing to (re-)claim here, just
+  // the next chunk's worth of work.
+  if (continuation) {
+    const { data: document } = await supabase
+      .from('documents')
+      .select('id, project_id, filename, chunk_plan')
+      .eq('id', documentId)
+      .maybeSingle()
+
+    if (!document) {
+      return jsonResponse({ error: 'Document not found' }, 404)
+    }
+
+    // deno-lint-ignore no-undef
+    EdgeRuntime.waitUntil(
+      processChunk(
+        supabase,
+        documentId,
+        document.project_id,
+        document.filename,
+        document.chunk_plan as ChunkPlanEntry[],
+        continuation.chunkIndex,
+      ),
+    )
+
+    return jsonResponse({ documentId, status: 'processing', chunk: continuation.chunkIndex + 1 }, 202)
+  }
+
+  // External entry call. Single conditional update, not read-then-write:
+  // two near-simultaneous requests for the same document could otherwise
+  // both pass a separate status check before either wrote `processing`,
+  // and both would kick off background tasks. The `.neq()` filter makes
+  // claiming atomic. extraction_completed_chunks resets here so a retry
+  // after a previous failed run doesn't show stale progress; chunk_plan and
+  // extraction_total_chunks are set once at upload time and untouched here.
   const { data: claimed, error: claimError } = await supabase
     .from('documents')
     .update({
       extraction_status: 'processing',
       extraction_started_at: new Date().toISOString(),
       extraction_error: null,
+      extraction_completed_chunks: 0,
     })
     .eq('id', documentId)
     .neq('extraction_status', 'processing')
-    .select('id, project_id, filename, storage_path')
+    .select('id, project_id, filename, chunk_plan')
 
   if (claimError) {
     return jsonResponse({ error: `Failed to claim document: ${claimError.message}` }, 500)
@@ -323,12 +517,14 @@ Deno.serve(async (req: Request) => {
       : jsonResponse({ error: 'Document not found' }, 404)
   }
 
-  inFlight.add(documentId)
+  const chunkPlan = document.chunk_plan as ChunkPlanEntry[] | null
+  if (!chunkPlan || chunkPlan.length === 0) {
+    await markFailed(supabase, documentId, 'Document has no chunk_plan — it was uploaded before client-side chunking landed, or upload-time splitting failed. Re-upload to fix.')
+    return jsonResponse({ documentId, status: 'processing' }, 202)
+  }
 
   // deno-lint-ignore no-undef
-  EdgeRuntime.waitUntil(
-    runExtraction(supabase, documentId, document.project_id, document.filename, document.storage_path),
-  )
+  EdgeRuntime.waitUntil(processChunk(supabase, documentId, document.project_id, document.filename, chunkPlan, 0))
 
   return jsonResponse({ documentId, status: 'processing' }, 202)
 })

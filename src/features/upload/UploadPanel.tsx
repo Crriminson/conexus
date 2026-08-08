@@ -92,7 +92,9 @@ export function UploadPanel({ projectId }: { projectId: string }) {
                     STATUS_STYLES[doc.extraction_status] ?? 'bg-muted text-muted-foreground'
                   }`}
                 >
-                  {doc.extraction_status}
+                  {doc.extraction_status === 'processing' && doc.extraction_total_chunks
+                    ? `processing (${doc.extraction_completed_chunks}/${doc.extraction_total_chunks})`
+                    : doc.extraction_status}
                 </span>
                 {RETRYABLE_STATUSES.has(doc.extraction_status) && (
                   <button
