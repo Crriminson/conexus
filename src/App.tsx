@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Redirect, Route, Switch } from 'wouter'
+import { Redirect, Route, Router, Switch } from 'wouter'
 import { useEnsureProject } from '@/hooks/useEnsureProject'
 import { UploadPanel } from '@/features/upload/UploadPanel'
 import { FactsReview } from '@/features/review/FactsReview'
@@ -61,13 +61,20 @@ function ProjectPage() {
   )
 }
 
+// Vite's BASE_URL is '/' for local dev/preview and the configured subpath
+// (e.g. '/conexus/') when built for GitHub Pages; wouter wants it without
+// the trailing slash.
+const ROUTER_BASE = import.meta.env.BASE_URL.replace(/\/$/, '')
+
 export default function App() {
   return (
-    <Switch>
-      <Route path="/project" component={ProjectPage} />
-      <Route path="/">
-        <Redirect to="/project" />
-      </Route>
-    </Switch>
+    <Router base={ROUTER_BASE}>
+      <Switch>
+        <Route path="/project" component={ProjectPage} />
+        <Route path="/">
+          <Redirect to="/project" />
+        </Route>
+      </Switch>
+    </Router>
   )
 }
