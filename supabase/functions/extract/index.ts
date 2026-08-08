@@ -12,6 +12,19 @@ const corsHeaders = {
 const STORAGE_BUCKET = Deno.env.get('SUPABASE_STORAGE_BUCKET') ?? 'documents'
 const MAX_MERGE_RETRIES = 5
 
+// Per-chunk retry for transient model-side failures (rate limit / upstream
+// 5xx). Deliberately small: a genuinely exhausted daily quota won't clear
+// within any backoff we can afford inside an edge function, so the point is
+// to survive a brief 429 burst, not to wait out a quota reset. When the
+// retries are used up the document fails with the real upstream message and
+// keeps every chunk merged so far — a later retry resumes from there.
+const MAX_CHUNK_ATTEMPTS = 3
+const RETRY_BASE_DELAY_MS = 20_000
+
+function isTransientLLMError(message: string): boolean {
+  return /\((429|500|502|503|504)\)/.test(message)
+}
+
 // Chunk plan is computed and the PDF physically split entirely client-side
 // at upload time (see src/hooks/useUploadDocument.ts) — NOT here. First
 // attempt did the splitting in this function via pdf-lib and it died in
@@ -304,7 +317,11 @@ function selfExtractUrl(): string {
 // (the ~150s ceiling applies per invocation — confirmed by direct
 // measurement). Awaited only long enough to get the 202 acknowledging the
 // next invocation started, not that chunk's own completion.
-async function triggerContinuation(documentId: string, chunkIndex: number): Promise<{ ok: true } | { ok: false; error: string }> {
+async function triggerContinuation(
+  documentId: string,
+  chunkIndex: number,
+  attempt = 0,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   if (!serviceRoleKey) return { ok: false, error: 'SUPABASE_SERVICE_ROLE_KEY not set, cannot trigger continuation' }
 
@@ -316,7 +333,7 @@ async function triggerContinuation(documentId: string, chunkIndex: number): Prom
         Authorization: `Bearer ${serviceRoleKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ documentId, _continuation: { chunkIndex } }),
+      body: JSON.stringify({ documentId, _continuation: { chunkIndex, attempt } }),
     })
     if (res.status !== 202) {
       return { ok: false, error: `Continuation call returned ${res.status}: ${await res.text()}` }
@@ -342,9 +359,17 @@ async function processChunk(
   filename: string,
   chunkPlan: ChunkPlanEntry[],
   chunkIndex: number,
+  attempt = 0,
 ) {
   inFlight.add(documentId)
   try {
+    // Backoff for a retried chunk. Sleeping here rather than before the
+    // requeue keeps each wait inside its own fresh invocation, so the delay
+    // can't eat the wall-clock budget of the invocation that scheduled it.
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, Math.min(RETRY_BASE_DELAY_MS * attempt, 60_000)))
+    }
+
     if (chunkIndex >= chunkPlan.length) {
       // Shouldn't happen (continuation only fires while chunks remain) but
       // don't fail an otherwise-fully-merged document over it.
@@ -366,11 +391,31 @@ async function processChunk(
     }
     const chunkBytes = new Uint8Array(await fileBlob.arrayBuffer())
 
-    const rawText = await callLLM({
-      prompt: buildExtractionPrompt(filename, { startPage: info.startPage, endPage: info.endPage, totalPages }),
-      file: { bytes: chunkBytes, mimeType: 'application/pdf' },
-      responseMimeType: 'application/json',
-    })
+    let rawText: string
+    try {
+      rawText = await callLLM({
+        prompt: buildExtractionPrompt(filename, { startPage: info.startPage, endPage: info.endPage, totalPages }),
+        file: { bytes: chunkBytes, mimeType: 'application/pdf' },
+        responseMimeType: 'application/json',
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      // Rate limits and upstream 5xx are transient — requeue this same
+      // chunk in a fresh invocation rather than failing the document and
+      // throwing away every chunk already merged. Quota exhaustion (429)
+      // is the case that actually bit us: a real run died at chunk 19/26
+      // and a plain retry would have re-run all 19 from scratch.
+      if (isTransientLLMError(message) && attempt + 1 < MAX_CHUNK_ATTEMPTS) {
+        const requeued = await triggerContinuation(documentId, chunkIndex, attempt + 1)
+        if (requeued.ok) return
+      }
+      await markFailed(
+        supabase,
+        documentId,
+        `Chunk ${chunkIndex + 1}/${chunkPlan.length} (pages ${info.startPage}-${info.endPage}) failed after ${attempt + 1} attempt(s): ${message}`,
+      )
+      return
+    }
 
     const parsed = parseModelJson(rawText)
     if (parsed === null) {
@@ -436,7 +481,7 @@ Deno.serve(async (req: Request) => {
   }
 
   let documentId: string | undefined
-  let continuation: { chunkIndex: number } | undefined
+  let continuation: { chunkIndex: number; attempt?: number } | undefined
   try {
     const body = await req.json()
     documentId = body?.documentId
@@ -480,30 +525,42 @@ Deno.serve(async (req: Request) => {
         document.filename,
         document.chunk_plan as ChunkPlanEntry[],
         continuation.chunkIndex,
+        continuation.attempt ?? 0,
       ),
     )
 
-    return jsonResponse({ documentId, status: 'processing', chunk: continuation.chunkIndex + 1 }, 202)
+    return jsonResponse(
+      {
+        documentId,
+        status: 'processing',
+        chunk: continuation.chunkIndex + 1,
+        attempt: (continuation.attempt ?? 0) + 1,
+      },
+      202,
+    )
   }
 
   // External entry call. Single conditional update, not read-then-write:
   // two near-simultaneous requests for the same document could otherwise
   // both pass a separate status check before either wrote `processing`,
   // and both would kick off background tasks. The `.neq()` filter makes
-  // claiming atomic. extraction_completed_chunks resets here so a retry
-  // after a previous failed run doesn't show stale progress; chunk_plan and
-  // extraction_total_chunks are set once at upload time and untouched here.
+  // claiming atomic. extraction_completed_chunks is deliberately NOT reset:
+  // a retry resumes from the last merged chunk instead of restarting at 0.
+  // Re-running merged chunks would be near-harmless factually (merge() is
+  // idempotent for equal values) but would burn the whole document's model
+  // quota again — which is exactly what exhausted it at chunk 19/26 on a
+  // real run. chunk_plan and extraction_total_chunks are set at upload time
+  // and untouched here.
   const { data: claimed, error: claimError } = await supabase
     .from('documents')
     .update({
       extraction_status: 'processing',
       extraction_started_at: new Date().toISOString(),
       extraction_error: null,
-      extraction_completed_chunks: 0,
     })
     .eq('id', documentId)
     .neq('extraction_status', 'processing')
-    .select('id, project_id, filename, chunk_plan')
+    .select('id, project_id, filename, chunk_plan, extraction_completed_chunks')
 
   if (claimError) {
     return jsonResponse({ error: `Failed to claim document: ${claimError.message}` }, 500)
@@ -523,8 +580,16 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ documentId, status: 'processing' }, 202)
   }
 
-  // deno-lint-ignore no-undef
-  EdgeRuntime.waitUntil(processChunk(supabase, documentId, document.project_id, document.filename, chunkPlan, 0))
+  const resumeFrom = Math.max(0, Math.min(document.extraction_completed_chunks ?? 0, chunkPlan.length))
+  if (resumeFrom >= chunkPlan.length) {
+    await markComplete(supabase, documentId)
+    return jsonResponse({ documentId, status: 'complete', resumedFrom: resumeFrom }, 202)
+  }
 
-  return jsonResponse({ documentId, status: 'processing' }, 202)
+  // deno-lint-ignore no-undef
+  EdgeRuntime.waitUntil(
+    processChunk(supabase, documentId, document.project_id, document.filename, chunkPlan, resumeFrom),
+  )
+
+  return jsonResponse({ documentId, status: 'processing', resumedFrom: resumeFrom }, 202)
 })
