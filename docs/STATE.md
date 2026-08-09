@@ -12,7 +12,9 @@ Five-step plan: (1) pluggable AI provider, (2) browser + live-data verification 
 
 **Pre-existing bug found during Step 1's typecheck, now fixed.** `src/features/document/DocumentView.tsx` used `<ExportButton>` but never imported it from `src/features/export/ExportButton.tsx` (predates this session — confirmed via `git stash -u` against a clean `updates/v1.1` checkout). Broke `npm run build`. Fixed with the missing import; `npm run build` and the full test suite (92/92) are both clean as of this fix.
 
-**Step 2 — browser + live-data verification: in progress.** See the "Step 2 seed data" section below for what was seeded, how, and the teardown command.
+**Step 2 — browser + live-data verification: seed data is live, waiting on a human to run `npm run dev` and look.** Realistic mock `IssuerFacts` were seeded directly into the live project (`fvtazfdppcajoglteutz`, project `a15f3021-6fda-4662-bc49-d629a45cfe39`) via the PostgREST API — no Gemini calls. Full detail (exactly what's confirmed vs. deliberately left unconfirmed and why, the one seed `documents` row, verification against the actual section/eligibility/export-gate functions) is in `docs/PROGRESS.md`'s "Step 2 — live-data seed" entry. **Teardown: `scripts/teardown-seed-data.sh`** — run it once done checking; wipes the seeded facts back to empty and deletes the seed document row, leaves everything else (pre-existing e2e-test document rows, `conflicts`/`merge_events`) untouched.
+
+**Standing rule from this point forward (2026-08-09):** every task, bugfix, or meaningful change is committed and pushed to `origin/updates/v1.1` immediately — not batched. "Committed, pushed, docs current" is part of the definition of done for every unit of work, not a separate step to ask about. `docs/STATE.md`/`docs/PROGRESS.md`/`docs/DECISIONS.md` get updated in the same commit as the change whenever the change affects status, decisions, or known issues (which is nearly always).
 
 ## What's built and verified
 

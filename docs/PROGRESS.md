@@ -210,3 +210,34 @@ One type fix needed along the way: `LLMFile.bytes` is now typed `Uint8Array<Arra
 **Found, not fixed (out of scope for this step):** `src/features/document/DocumentView.tsx` calls `<ExportButton>` without importing it — pre-existing, breaks `npm run build`. See `docs/STATE.md`.
 
 **Outstanding:** none for the provider abstraction itself. Next: Step 2, browser + live-data verification of Tasks 10/11/13/14 against seeded mock facts (no Gemini calls).
+
+## Full-app-completion phase — bugfix: missing ExportButton import
+
+`src/features/document/DocumentView.tsx` referenced `<ExportButton>` without importing it from `src/features/export/ExportButton.tsx`. Pre-existing (predates this phase — confirmed via `git stash -u` against a clean `updates/v1.1` checkout, so it landed sometime during Task 14 and was never caught because nobody had run `npm run build` since). One-line fix. `npm run build` and the full test suite (92/92) both clean after.
+
+**Files:** `src/features/document/DocumentView.tsx`.
+
+## Full-app-completion phase, Step 2 — live-data seed for Tasks 10/11/13/14
+
+Seeded realistic mock `IssuerFacts` directly into the live Supabase project (`fvtazfdppcajoglteutz`, project row `a15f3021-6fda-4662-bc49-d629a45cfe39` / "Demo Issuer") via the PostgREST API using the anon key — no Gemini calls, no extraction pipeline involved. Used the same version-conditioned (CAS) PATCH discipline the app itself uses, so this couldn't race a concurrent write.
+
+**What was seeded** (fictional issuer "Sundfin Industries Limited" — deliberately not reusing any real/prior-test company name, given the earlier contamination incident):
+- **Confirmed:** all of `company` (legalName, incorporationDate, registeredOfficeAddress, industry, businessDescription — CIN is the one exception, see below), all of `capitalStructure` (self-consistent: paid-up = issued ≤ authorized, shares × face value = paid-up), all of `financials` except `netProfit` (self-consistent: totalAssets − totalLiabilities = netWorth), 2 `promoters` (name/panOrId/shareholdingPercent/category confirmed, summing to 54.7% — clears the 20% minimum), 1 `litigation` record (status "Dismissed" — not a pending term), 2 `relatedParties` records.
+- **Deliberately left `status: 'ai'` (unconfirmed), one field at a time, each for a specific reason:**
+  - `company.cin` — value is a well-formed CIN, so the eligibility rule still *passes*, but with `basis: 'unconfirmed'`. This is the cleanest way to exercise Task 10's "AI-only, unconfirmed" badge without it looking like broken data.
+  - `financials.netProfit` — the one gap that (a) makes the Financial Summary section render "Incomplete — 1 pending" instead of fully Ready, (b) is exactly what blocks Task 14's export gate (`checkExportGate` → `{ allowed: false, missingFieldPaths: ['financials.netProfit'] }`), and (c) gives the eligibility "profitable" rule an unconfirmed badge too.
+- One new `documents` row was created as the citation source for every seeded field's `sourceDocId` (id `d2feda0c-1854-4bee-b3f4-9b791532d311`, filename `seed-demo-drhp.pdf`, storage_path `seed-data/seed-demo-drhp.pdf`, `extraction_status: 'complete'`). **No actual file was uploaded to Storage** — clicking a source citation on this seeded data will produce a signed URL that 404s, since there's nothing at that path. That's expected for this seed, not a bug; the citation click-through itself was already verified live in Task 9 against a real uploaded document.
+- Pre-existing `documents` rows on the project (the e2e-test leftovers noted in this file's "Task 9 — browser verification" section and `docs/STATE.md`'s open items) were left untouched — not part of this seed, not this seed's concern.
+
+**Verified against the actual `assembleSections`/`evaluateEligibility`/`checkExportGate` functions (via `tsx`, against the exact JSON that was written to Supabase) before handing off for a browser check:**
+```
+Sections: capital-structure=ready, shareholding=ready, financial-summary=incomplete (missing financials.netProfit); definitions/general-info=ready (static)
+Eligibility: overall=pass; profitable and cin-format both basis=unconfirmed; all 6 rules pass
+Export gate: allowed=false, missingFieldPaths=['financials.netProfit']
+```
+
+**Teardown:** `scripts/teardown-seed-data.sh` — resets the project's `facts` to the fully-empty shape (version-conditioned PATCH, same CAS discipline as seeding) and deletes the one seed `documents` row. Reads `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` from `.env` or the environment. Does not touch `conflicts`/`merge_events` (both were already empty pre-seed) or any pre-existing document row. Tested: confirmed the version-mismatch failure path returns `[]`/200 (script detects this and exits non-zero rather than silently doing nothing), and confirmed anon-key DELETE on `documents` works, using a disposable throwaway row — not the real seed data.
+
+**Files:** `scripts/teardown-seed-data.sh`. (Seed itself was applied directly via the REST API, not via a committed script — there's nothing to re-run since the intent is one seed → one browser check → one teardown, not a repeatable fixture load.)
+
+**Outstanding:** waiting on a human to actually run `npm run dev` and look — this is fixture-shaped data but the first time any of Tasks 10/11/13/14 will have rendered against a live Supabase row instead of the static fixture. See the checklist handed to the user directly (not duplicated here to avoid drift — if it needs to be permanent, promote it into this file later).

@@ -23,11 +23,16 @@ VITE_SUPABASE_STORAGE_BUCKET=
 
 `VITE_SUPABASE_STORAGE_BUCKET` should be `documents` if using the existing project (see Storage bucket below).
 
-Additionally, `GEMINI_API_KEY` must be set as a **Supabase secret** (not a repo env var — it's only used server-side by the edge function):
+Additionally, the `extract` Edge Function's LLM provider is set via **Supabase secrets** (not repo env vars — server-side only). As of the pluggable-provider refactor (2026-08-09, `supabase/functions/_shared/llm/`), provider choice, model, and endpoint are all config:
+
 ```bash
-supabase secrets set GEMINI_API_KEY=your-key-here
+supabase secrets set GEMINI_API_KEY=your-key-here    # required if LLM_PROVIDER is gemini or unset
+# optional — all default to the values below if unset:
+supabase secrets set LLM_PROVIDER=gemini              # or "mock" for a no-network, no-quota-cost stand-in
+supabase secrets set GEMINI_MODEL=gemini-2.5-flash
+supabase secrets set GEMINI_BASE_URL=https://generativelanguage.googleapis.com
 ```
-Get a key from https://ai.google.dev/. Verify it's set with `supabase secrets list` after linking (below).
+Get a Gemini key from https://ai.google.dev/. Verify secrets are set with `supabase secrets list` after linking (below). `LLM_PROVIDER=mock` is useful for exercising the upload → extract → merge pipeline end-to-end without spending Gemini's free-tier daily quota (see `docs/DECISIONS.md`, "LLM provider abstraction") — it returns a valid-shape empty-facts response rather than calling any real API.
 
 ## Migrations
 
@@ -39,6 +44,8 @@ supabase/migrations/20260802000000_documents_bucket_policies.sql  -- storage RLS
 supabase/migrations/20260803000000_add_merge_events.sql     -- projects.merge_events
 supabase/migrations/20260804000000_async_extraction.sql     -- documents.extraction_started_at/extraction_error, projects.version
 supabase/migrations/20260804000001_reaper.sql                -- pg_cron reaper for stuck extractions
+supabase/migrations/20260808000000_extraction_chunk_progress.sql  -- documents.extraction_total_chunks/extraction_completed_chunks
+supabase/migrations/20260808000100_document_chunk_plan.sql   -- documents.chunk_plan (client-side chunking)
 ```
 
 Note: `supabase db push` (CLI) is the normal way to do this once linked, but wasn't reliably usable in this project's history due to CLI/environment quirks — direct `psql` against the connection string was used instead and is known to work. Either should be fine on a clean setup.
@@ -62,8 +69,12 @@ Edge function logs: this CLI version has no `logs` subcommand — use the Dashbo
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # vitest run — merge() unit tests, no network/DB needed
+npm test           # vitest run — pure-function unit tests (merge, fieldPath, eligibility, templates, export, the LLM provider abstraction), no network/DB needed
 npm run build       # tsc -b && vite build
 ```
 
 The app is a single route (`/project`) with no login/multi-project flow — it fetches or creates one singleton "Demo Issuer" project on load.
+
+## Seeding/wiping test data directly in Supabase
+
+For browser-checking screens against realistic data without running (and paying for) real extraction, facts can be seeded directly into `projects.facts` via the PostgREST API (same version-conditioned PATCH the app itself uses — see `docs/PROGRESS.md`'s "Step 2 — live-data seed" entry for a worked example). **Always track exactly what was seeded and clean it up afterward** — this project had a real contamination incident from stray test data (`docs/DECISIONS.md`, "Task 11 built ahead of a clean confirmed dataset"). `scripts/teardown-seed-data.sh` is the teardown for the current seed; if you seed something new, write (or extend) a teardown alongside it rather than leaving data behind.
