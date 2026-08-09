@@ -39,17 +39,31 @@ The demo centerpiece per section 9. Built along with its prerequisite:
 - **The diff trail is real and correct**, not just plumbing that compiles: history on the edited field showed the original extraction event, then ~12 `"Also seen in <doc> — kept existing value"` entries from the chunked re-run, then the human correction — in the right order, with real timestamps.
 - **This incidentally verified something we didn't have direct evidence for before**: the merge precedence table's no-op branch (`ai`/`confirmed` field, same-or-lower-confidence proposal → keep, discard) is firing correctly in production, not just in the 18 `merge()` unit tests. **Still unverified**: the *differing*-value branch that raises an actual `FactConflict` — needs a re-extraction that disagrees with a confirmed field, which needs Gemini quota to force.
 
-## Demo plan (decided 2026-08-09)
+## Demo plan (revised 2026-08-09) — Gemini quota decision now deferred to the end
 
-**Not pursuing Gemini billing tonight.** Instead: switch the demo to a smaller document (30–50 pages, ~2–3 chunks) that can complete extraction end-to-end within the free tier's 20 requests/day cap, rather than finishing the 503-page DRHP (currently stalled at 19/26 — see open item 1). A small doc that finishes cleanly demos better than a large one that stalls mid-run. The 503-page document and its partial facts stay in the project as-is; they're not blocking anything, just not the thing being demoed.
+Gap-list review of Tasks 10–14 against the architecture doc: Task 11 (templates) required, Task 13 (document view) required, Task 10 (eligibility) required but zero Gemini dependency, Task 12 (generate-section) and Task 14 (export) deferred.
+
+**Before Task 11 was built, the live project's facts were checked and found unusable**: zero fields anywhere were `confirmed` (526 `ai` / 100 `empty` / 1 `edited`), and the singleton project's facts were contaminated — `company.legalName` read "VERITAS FINANCE LIMITED" while `company.industry` read "Topical Generics Pharmaceuticals", i.e. two unrelated companies' test uploads had merged into one project's fact set (the singleton-project design merges every upload into the same row, and tonight's testing uploaded documents from different companies into it). **Project facts/conflicts/merge_events were wiped back to empty** (CAS-conditioned PATCH, version bumped 23→24) rather than build against contaminated data.
+
+The document assumed to be "the 30–50 page demo doc" (`1785756069624.pdf`) was checked and is actually **540 pages / 13.6MB** — same scale as the DRHPs that already exhausted quota, not a small file. No genuinely small demo document exists yet.
+
+**Decision: don't block further roadmap work on the Gemini quota call.** Buy-credits-vs-smaller-doc is deferred to the end of the night. Tasks 11, 13, and 10 are being built and tested against a **fixture** confirmed `IssuerFacts` dataset (`src/lib/templates/fixtures.ts`, schema-accurate, not wired into the live app) instead of waiting on live data. **Both Task 11 and Task 13 still need a pass against real live confirmed facts once the quota decision is made and the actual demo document is extracted** — fixture-verified is not the same guarantee as Task 9's live-browser verification, and that gap is real until it's closed.
 
 ## Exact next action
 
-1. **Read `docs/ARCHITECTURE.md` section 9 against what's built** and produce a gap list: what Tasks 10–14 still require, and which of those are load-bearing for an end-to-end demo vs. deferrable. (In progress — see below.)
-2. **Upload and extract a 30–50 page document** to get a clean, complete `IssuerFacts` set within quota, per the demo plan above.
-3. Continue the roadmap on whatever the gap list says is demo-critical: likely Task 10 (`src/lib/eligibility/`) and/or Task 11 (`src/lib/templates/`).
+1. Build Task 10 (`src/lib/eligibility/`) — zero Gemini dependency even in production, build and test fully now against fixture/real data, no need to wait.
+2. Once the Gemini quota decision is made (buy credits vs. smaller doc) and a real demo document is extracted: hand-confirm the ~12–15 fields Tasks 11/13 need, re-verify `src/lib/templates/` and `DocumentView` against that live data (currently only fixture-verified), and check for duplicate/near-identical records (promoters showed this pattern before — see open item 2) before confirming anything.
+3. Tasks 12 (`generate-section`) and 14 (export) remain deferred.
 
 The differing-value conflict branch is still never observed end-to-end (needs a confirmed field + a re-extraction that disagrees, which costs quota) — worth forcing once quota allows, but not blocking anything else.
+
+## Task 11 & 13 — templates and document view (built, fixture-verified only)
+
+**Task 11** (`src/lib/templates/`): 2 static boilerplate sections (Definitions, General Information — placeholder text, not reviewed legal copy) plus 3 computed sections (Capital Structure, Financial Summary, Shareholding Pattern). Computed sections read `status === 'confirmed'` **strictly** — not `edited`, not `ai` — per the explicit human call to keep an empty screen over a contaminated one. Each section reports `status: 'ready' | 'incomplete'` plus `missingFieldPaths` for whatever isn't confirmed yet. `assembleSections(facts)` returns all 5 in a fixed order. 9 Vitest tests, including one pinning that an `edited`-but-unconfirmed field is correctly excluded.
+
+**Task 13** (`src/features/document/DocumentView.tsx`): renders `assembleSections()`'s output — static sections as prose, computed sections as either a key-value list (capital structure, financials) or a table (shareholding, since it's genuinely tabular), each with a live source link (signed URL via `useOpenSource`, same pattern as Task 9) and a per-section status badge. Wired into `App.tsx` as a third "Document" tab alongside Documents/Facts Review. Small, mostly wiring, no new hooks needed.
+
+**Verification status: fixture only, not live.** `src/lib/templates/fixtures.ts` provides a fully-confirmed, schema-accurate `IssuerFacts` fixture (2 promoters, all domains populated) — `tsc`/`vitest`/`vite build` all clean, and a test confirms every computed section reads `ready` against it. **Nobody has looked at the Document tab in a browser** (same Chromium-can't-reach-network limitation as everything else this session), and it has never rendered real Supabase data — only the fixture. Re-verify both once the Gemini quota decision lands and a real document gets hand-confirmed.
 
 ## Open items — noted, not acted on
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Field, IssuerFacts } from '@/types/facts'
 import { emptyIssuerFacts } from '@/types/facts/empty'
+import { fixtureIssuerFacts } from './fixtures'
 import { assembleSections, buildCapitalStructureSection, buildFinancialSummarySection, buildShareholdingSection } from './index'
 
 function confirmedField<T>(value: T, page = 1): Field<T> {
@@ -170,5 +171,18 @@ describe('assembleSections', () => {
     ])
     expect(sections.filter((s) => s.kind === 'static')).toHaveLength(2)
     expect(sections.filter((s) => s.kind === 'computed')).toHaveLength(3)
+  })
+
+  // Pending the Gemini quota decision (2026-08-09), there's no live
+  // confirmed dataset — this fixture stands in for one, matching the real
+  // schema exactly, so Task 13's document view has something real to
+  // render and this suite catches a schema drift immediately.
+  it('renders every computed section as ready against the fully-confirmed fixture', () => {
+    const sections = assembleSections(fixtureIssuerFacts())
+    const computed = sections.filter((s) => s.kind === 'computed')
+    expect(computed.every((s) => s.status === 'ready')).toBe(true)
+    expect(computed.every((s) => s.missingFieldPaths.length === 0)).toBe(true)
+    const shareholding = computed.find((s) => s.id === 'shareholding')
+    expect(shareholding?.rows).toHaveLength(2)
   })
 })

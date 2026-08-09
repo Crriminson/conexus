@@ -3,10 +3,12 @@ import { Redirect, Route, Router, Switch } from 'wouter'
 import { useEnsureProject } from '@/hooks/useEnsureProject'
 import { UploadPanel } from '@/features/upload/UploadPanel'
 import { FactsReview } from '@/features/review/FactsReview'
+import { DocumentView } from '@/features/document/DocumentView'
 
 const TABS = [
   { id: 'documents', label: 'Documents' },
   { id: 'review', label: 'Facts Review' },
+  { id: 'document', label: 'Document' },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
@@ -52,11 +54,9 @@ function ProjectPage() {
         ))}
       </div>
 
-      {tab === 'documents' ? (
-        <UploadPanel projectId={projectId} />
-      ) : (
-        <FactsReview projectId={projectId} />
-      )}
+      {tab === 'documents' && <UploadPanel projectId={projectId} />}
+      {tab === 'review' && <FactsReview projectId={projectId} />}
+      {tab === 'document' && <DocumentView projectId={projectId} />}
     </div>
   )
 }

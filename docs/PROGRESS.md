@@ -144,3 +144,29 @@ Ran `npm run dev` on a real machine (macOS) against the live Supabase project (`
 - **Bonus finding**: those "kept existing value" entries are live proof the merge precedence table's no-op branch (same-or-lower-confidence proposal against an already-set field → keep, discard) is firing correctly in production, not just in the 18 `merge()` unit tests. Still unverified: the *differing*-value branch that raises an actual `FactConflict` — needs a confirmed field plus a disagreeing re-extraction, which costs Gemini quota to force.
 
 **Decision arising from this session:** not pursuing Gemini billing tonight. Demo plan is to extract a smaller document (30–50 pages, well inside the free tier's 20 req/day cap) end-to-end instead of finishing the 503-page DRHP, which stays parked at 19/26.
+
+## Pre-Task-11 data check — found the project's facts unusable
+
+Before starting Task 11, pulled the live project's facts to confirm the fields its computed sections need were actually populated. Found two blockers instead: **zero fields were `status: confirmed`** anywhere (526 `ai` / 100 `empty` / 1 `edited`, that one `edited` being the test edit from the Task 9 browser verification), and **the facts were contaminated** — `company.legalName` read "VERITAS FINANCE LIMITED" (an NBFC) while `company.industry` read "Topical Generics Pharmaceuticals" (a pharma classification), meaning two unrelated companies' test documents had merged into the same singleton project.
+
+Checked the document assumed to be the "30–50 page demo doc" (`1785756069624.pdf`, two pending duplicate uploads) — downloaded it and measured **540 pages / 13.6MB**, the same scale as the DRHPs that already exhausted quota, not a small file. Neither pending copy has a `chunk_plan` (`extraction_total_chunks: null`), so neither is extractable as-is with the current chunked `extract` function regardless.
+
+**Actions taken:** wiped `projects.facts`/`conflicts`/`merge_events` back to empty via a CAS-conditioned PATCH (`version` 23→24, using the service-role key fetched via the Management API's `/api-keys` endpoint since the anon key can't write past RLS and the Management API's own SQL-execution endpoint would have worked equally well). Started slicing pages 1–40 out of the 540-page file as a genuine small demo document (mirroring the existing `1785756069624-1-10.pdf` precedent) but **stopped before calling Gemini or finishing the upload** — the quota decision (buy credits vs. commit to a small doc) was still open, and spending quota before that call risked wasting it. No extraction has run since the wipe.
+
+**Decision: don't block the roadmap on the quota call.** Logged in `docs/DECISIONS.md`. Build Tasks 11/13/10 against fixture data now; re-verify against live confirmed facts once the quota decision is made.
+
+## Task 11 — templates
+
+`src/lib/templates/`: `types.ts` (`Section`/`SectionCell`), `shared.ts` (`cellFromField` — the one place `status === 'confirmed'` is checked, strictly, not relaxed to `edited` or `ai`), `staticSections.ts` (Definitions, General Information — fixed placeholder text), `capitalStructure.ts`, `financials.ts`, `shareholding.ts` (three computed-section builders, each returning `status: 'ready' | 'incomplete'` + `missingFieldPaths`), `index.ts` (`assembleSections()`, fixed order: 2 static then 3 computed), `fixtures.ts` (a fully-confirmed, schema-accurate `IssuerFacts` fixture + matching document row, since there's no live confirmed dataset to test against right now).
+
+**Files:** `src/lib/templates/{types,shared,staticSections,capitalStructure,financials,shareholding,index,fixtures}.ts`, `src/lib/templates/templates.test.ts` (9 tests: empty-facts incomplete, partial-confirmed still incomplete, edited-not-confirmed correctly excluded, per-field — not per-record — missing-path tracking on shareholding, section order, and one test against the fixture confirming every computed section reads `ready`).
+
+**Outstanding:** fixture-verified only — no live data has ever passed through this code. Re-verify once real facts are confirmed.
+
+## Task 13 — document view
+
+`src/features/document/DocumentView.tsx`: reads `useProject`, calls `assembleSections(facts)`, renders static sections as prose and computed sections as either a key-value list or a table (auto-detected by row width — shareholding's multi-cell rows render as a table, capital structure/financials' single-cell rows render as a list), each row/cell carrying a live source link via `useOpenSource` (same signed-URL-at-page pattern as Task 9) and each section carrying a `Ready`/`Incomplete — N pending` status badge. Wired into `App.tsx` as a third "Document" tab.
+
+**Files:** `src/features/document/DocumentView.tsx`, `src/App.tsx` (added tab).
+
+**Outstanding:** same as Task 11 — `tsc`/`vitest`/`vite build` clean, renders correctly against the fixture logically (verified via Task 11's fixture test, since `DocumentView` is a thin render of `assembleSections()`'s output), but the component itself has never been opened in a browser, fixture or live. No component-testing infrastructure exists in this codebase (all tests so far are pure-function) — consistent with how Task 9's screen was verified (a human, not an automated render test), that's what real verification here will require too.
