@@ -10,6 +10,14 @@ Backend/DB: Supabase (Postgres + Auth + Storage)
 - After finishing each Phase, stop and wait for review before continuing to the next.
 - After finishing any task, append a short entry to `docs/PROGRESS.md`: task number, what was built/decided, files touched, anything still outstanding. A few lines, not a transcript — this file is what a fresh session reads instead of a re-explanation.
 
+## Workflow rules
+- `updates/v1.1` is the source of truth. Never branch off `main`. Any future PR is `updates/v1.1` -> `main`.
+- Commit and push to `origin/updates/v1.1` immediately after every task, bugfix, or meaningful change — not batched later.
+- Every commit that changes status, decisions, or known issues must include an updated `docs/STATE.md`, `PROGRESS.md`, and/or `DECISIONS.md` in the same commit.
+- "Committed, pushed, docs current" is part of the definition of done for every task — not a separate step to ask about.
+- Mock/fixture data is allowed anywhere data is needed during dev, but must always come with an explicit cleanup/teardown step — no test data left floating in Supabase after a task is verified.
+- At the start of every session: read `docs/STATE.md`, `PROGRESS.md`, and `DECISIONS.md` before doing anything else.
+
 ## Data model
 - The shared data model lives in `src/types/project.ts`, defined once in Phase 0.
 - Extend its implementation across phases — never casually change its shape.
