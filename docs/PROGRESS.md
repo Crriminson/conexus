@@ -240,4 +240,12 @@ Export gate: allowed=false, missingFieldPaths=['financials.netProfit']
 
 **Files:** `scripts/teardown-seed-data.sh`. (Seed itself was applied directly via the REST API, not via a committed script — there's nothing to re-run since the intent is one seed → one browser check → one teardown, not a repeatable fixture load.)
 
-**Outstanding:** waiting on a human to actually run `npm run dev` and look — this is fixture-shaped data but the first time any of Tasks 10/11/13/14 will have rendered against a live Supabase row instead of the static fixture. See the checklist handed to the user directly (not duplicated here to avoid drift — if it needs to be permanent, promote it into this file later).
+**Verified live in a real browser, 2026-08-09.** The human's laptop checkout was initially stale (missing Task 13's Document-tab wiring — a `git pull origin updates/v1.1` fixed it, see `docs/DECISIONS.md`'s branch entry for why that's a recurring risk this session). Once current: all four checklist items confirmed —
+1. Eligibility card: overall pass, `profitable` and `cin-format` both show the "AI-only, unconfirmed" badge, the other 4 rules don't.
+2. Document view sections: Capital Structure and Shareholding Pattern both "Ready" (2-promoter table populated correctly); Financial Summary "Incomplete — 1 pending".
+3. Export button: disabled, correct "field(s) not confirmed" messaging.
+4. Source citation click: no visible action — diagnosed as expected, not a bug. `useOpenSource.createSignedUrl()` fails because the seed's one `documents` row pointed at a Storage path with no real file behind it (the seed never uploaded actual bytes, only a table row for citation purposes); `DocumentView`'s click handler (`.catch(() => {})`) swallows the resulting error silently rather than surfacing it. Citation click-through itself was already verified for real against an actually-uploaded document in Task 9.
+
+**Teardown run and verified directly against Supabase** (`scripts/teardown-seed-data.sh`): project version 25 → 26, `facts` confirmed fully empty (every leaf `status: 'empty'`, `value: null`), seed `documents` row confirmed deleted, all 5 pre-existing e2e-test document rows confirmed still present and untouched.
+
+**Outstanding:** none — Step 2 is closed. Tasks 10/11/13/14 have now each had a real first live-data browser verification, closing the gap flagged in every one of their "fixture-verified only" notes above. Next: Step 3.
