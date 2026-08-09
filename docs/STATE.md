@@ -23,7 +23,7 @@ Tasks 1–8 of `docs/ARCHITECTURE.md` section 9 are done: scaffold, fact types (
 
 **Timeboxed.** If full chunking isn't working within a couple hours of when this was started, the fallback is a capped version instead: extract up to ~100 pages in one call, documents larger than that ask the user to split the upload — then move on to Task 9 regardless.
 
-## Task 9 — Facts Review screen (built, not yet seen in a browser)
+## Task 9 — Facts Review screen (built and verified in a real browser)
 
 The demo centerpiece per section 9. Built along with its prerequisite:
 
@@ -32,23 +32,33 @@ The demo centerpiece per section 9. Built along with its prerequisite:
 - **Screen** (`src/features/review/`): domains grouped and explicitly ordered; amber highlight below 0.5 confidence (section 4's threshold, which merge() deliberately doesn't branch on); click source → signed URL opened at `#page=N`; click-to-edit inline; Confirm per field; conflict badges with side-by-side Keep current / Accept proposed showing both sources; per-field diff trail assembled from merge events (writes *and* skips — "another document agreed, we kept yours" is the reassurance a reviewer wants).
 - Accepting a proposed value marks the field `edited`, not `ai`, so a later extraction proposing something else raises a fresh conflict instead of silently overwriting a human decision.
 
-**Not yet verified in a real browser** — this session's sandbox can't reach external hosts from Chromium (see environment notes below), so the screen has a clean `tsc`/`vitest`/`vite build` and its path grammar checked against live data, but nobody has clicked it. First thing to do next session: run `npm run dev`, open `/project` → Facts Review, and exercise confirm / edit / source-link / conflict resolution against the real extracted facts.
+**Verified live in a real browser, 2026-08-09.** Chromium in this sandbox still can't reach the internet (see environment notes below), so this was done by running `npm run dev` on a real machine (macOS) against the live Supabase project (`fvtazfdppcajoglteutz`) — first human eyes on this screen. Result: clean startup, no build errors, no console errors.
+
+- **Stats bar and domain grouping render correctly** against real data: 1 confirmed / 0 edited / 526 from AI / 100 empty. Company section fields populate correctly (legal name, CIN, incorporation date, registered office, industry, business description), with confidence badges and source links (including page refs into the chunked file, e.g. `p.181`).
+- **Inline edit verified**: edited `company.legalName` to a test value, save succeeded, status flipped `ai → edited`, and the stats bar updated in sync in the same interaction.
+- **The diff trail is real and correct**, not just plumbing that compiles: history on the edited field showed the original extraction event, then ~12 `"Also seen in <doc> — kept existing value"` entries from the chunked re-run, then the human correction — in the right order, with real timestamps.
+- **This incidentally verified something we didn't have direct evidence for before**: the merge precedence table's no-op branch (`ai`/`confirmed` field, same-or-lower-confidence proposal → keep, discard) is firing correctly in production, not just in the 18 `merge()` unit tests. **Still unverified**: the *differing*-value branch that raises an actual `FactConflict` — needs a re-extraction that disagrees with a confirmed field, which needs Gemini quota to force.
+
+## Demo plan (decided 2026-08-09)
+
+**Not pursuing Gemini billing tonight.** Instead: switch the demo to a smaller document (30–50 pages, ~2–3 chunks) that can complete extraction end-to-end within the free tier's 20 requests/day cap, rather than finishing the 503-page DRHP (currently stalled at 19/26 — see open item 1). A small doc that finishes cleanly demos better than a large one that stalls mid-run. The 503-page document and its partial facts stay in the project as-is; they're not blocking anything, just not the thing being demoed.
 
 ## Exact next action
 
-1. **Open the Facts Review screen in a real browser and use it.** `npm run dev` → `/project` → Facts Review tab. Exercise confirm, inline edit, source link (should open the chunk PDF at the cited page), and — if any exist — conflict resolution. This is the one thing built this session that no human has actually looked at, and it's the demo centerpiece.
-2. **Finish the stalled extraction when Gemini quota allows.** Document `9c87d13e-32a1-417b-8c79-125c6823f5ee` is at 19/26. Just re-invoke `/extract` with its id — it resumes at chunk 20, no re-extraction cost. That fills in the remaining ~7 chunks of facts.
-3. Then continue the roadmap: Task 10 (`src/lib/eligibility/`) or Task 11 (`src/lib/templates/`).
+1. **Read `docs/ARCHITECTURE.md` section 9 against what's built** and produce a gap list: what Tasks 10–14 still require, and which of those are load-bearing for an end-to-end demo vs. deferrable. (In progress — see below.)
+2. **Upload and extract a 30–50 page document** to get a clean, complete `IssuerFacts` set within quota, per the demo plan above.
+3. Continue the roadmap on whatever the gap list says is demo-critical: likely Task 10 (`src/lib/eligibility/`) and/or Task 11 (`src/lib/templates/`).
 
-A conflict has never actually been observed end-to-end, because conflicts only raise against `confirmed`/`edited` fields and nothing had been confirmed until this screen existed. To see the conflict UI work: confirm a field, then re-run extraction on a document that proposes a different value for it.
+The differing-value conflict branch is still never observed end-to-end (needs a confirmed field + a re-extraction that disagrees, which costs quota) — worth forcing once quota allows, but not blocking anything else.
 
 ## Open items — noted, not acted on
 
 These are known and deliberately parked. Don't treat them as bugs to fix on sight; they need a human call or an external unblock.
 
-1. **Gemini quota is the hard blocker on full extraction — now precisely diagnosed.** The 429 body names the exact limit: `quotaId: GenerateRequestsPerDayPerProjectPerModel-FreeTier, quotaValue: 20`. The free tier allows **20 `gemini-2.5-flash` requests per calendar day, total** — a 26-chunk document cannot complete in one day on this plan regardless of retry/backoff logic. Confirmed resume works correctly: a retry picked up at chunk 19 (not 0), got exactly one more chunk through to 20, then hit the identical daily cap. Nothing left to fix in code — needs either a day's wait (quota resets daily) or billing enabled on the key. Don't spend further Gemini calls testing this today; the finding is already conclusive.
+1. **Gemini quota is the hard blocker on full extraction — now precisely diagnosed, and deliberately not being worked around tonight.** The 429 body names the exact limit: `quotaId: GenerateRequestsPerDayPerProjectPerModel-FreeTier, quotaValue: 20`. The free tier allows **20 `gemini-2.5-flash` requests per calendar day, total** — a 26-chunk document cannot complete in one day on this plan regardless of retry/backoff logic. Confirmed resume works correctly: a retry picked up at chunk 19 (not 0), got exactly one more chunk through to 20, then hit the identical daily cap (document `9c87d13e-32a1-417b-8c79-125c6823f5ee`, still at 19/26). **Decision (2026-08-09): skip billing, demo on a smaller document instead** — see "Demo plan" above. Nothing left to fix in code either way.
 2. **Possible over-extraction on promoters / related parties.** The 19-chunk run produced 15 promoters and 78 related-party transactions, some sparse (`din`/`panOrId` null, name sourced to p.1). That's high enough to suspect the prompt is over-eager or that natural-key matching isn't collapsing records that should be one. It's an extraction-accuracy question, not a pipeline bug — the Review screen now surfaces exactly this, so judge it there before changing the prompt.
 3. **Test artifacts still in the project.** The e2e runs left `documents` rows and ~26 chunk objects per run under `e2e-test/` in Storage, plus the facts they merged into the singleton project. Fine for now (they're what makes the Review screen non-empty), but they are not a curated demo dataset — Task 15 will want a clean one.
+4. **A second, older test document (`drhp-chunked-*`) shows `failed: "no chunk_plan, uploaded before client-side chunking landed"`.** This is expected, not a bug — it predates `useUploadDocument`'s chunking rewrite and has no `chunk_plan` to resume from. Leave it; don't spend time trying to recover it.
 
 ## Open decisions — need a human call, not yet made
 
@@ -57,4 +67,4 @@ These are known and deliberately parked. Don't treat them as bugs to fix on sigh
 ## Environment notes for whoever runs this next
 
 - **Supabase CLI may not work through a proxied sandbox.** In this session, `supabase` (Node/undici-based CLI) could not get a transport through the session's HTTP proxy — `Transport error` on every management call — even though plain `curl` through the identical proxy worked fine, and even with `NODE_USE_ENV_PROXY=1` set. Worked around it entirely via the Supabase **Management REST API** (`api.supabase.com/v1/projects/{ref}/...`) over curl: same deploy, same secrets/migration checks, same result. If you hit the same wall, don't burn time on the CLI — the REST API does everything `functions deploy`/`db push`/`secrets list` do.
-- **A headless Chromium in this sandbox could not reach any external host through the session's proxy**, `api.supabase.com` included, even with `proxy: {server: ...}` passed explicitly to Playwright's `launch()` — while the same proxy served `curl` and the Node CLI's own HTTPS calls fine. Root cause not chased down (out of scope, timeboxed). If you need to verify through the actual browser UI in a similar sandboxed session, expect this to bite you; driving the same REST/Storage/Functions calls directly with curl was the workaround used here.
+- **A headless Chromium in this sandbox could not reach any external host through the session's proxy**, `api.supabase.com` included, even with `proxy: {server: ...}` passed explicitly to Playwright's `launch()` — while the same proxy served `curl` and the Node CLI's own HTTPS calls fine. Root cause not chased down (out of scope, timeboxed). If you need to verify through the actual browser UI in a similar sandboxed session, expect this to bite you. The workaround used here: drive the REST/Storage/Functions calls directly with curl for anything the sandbox itself needs to check, and get a human to run `npm run dev` on a real machine for actual browser/UI verification — that's how Task 9 got its first real browser test (2026-08-09, macOS, confirmed working against live data — see Task 9 section above).

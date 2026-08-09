@@ -129,4 +129,18 @@ Timeboxed: if full chunking isn't working within a couple hours, fall back to a 
 
 Screen covers section 9's list: domains grouped and explicitly ordered, amber below 0.5 confidence, click-source-opens-document-at-page, inline edit, Confirm per field, conflict badges with side-by-side Keep current / Accept proposed both showing sources, and the diff trail from merge events. The trail shows **skips as well as writes** — "another document mentioned this and we kept yours" is the reassurance a reviewer actually wants. Accepting a proposal marks the field `edited`, not `ai`, so a later extraction disagreeing raises a fresh conflict rather than silently overwriting a human decision.
 
-**Outstanding:** 33 tests pass, `tsc` and `vite build` clean, path grammar verified against live data — but **nobody has opened this in a browser** (this session's Chromium can't reach external hosts through the sandbox proxy). No conflict has been observed end-to-end either, since conflicts require a `confirmed`/`edited` field and nothing was confirmed before this screen existed.
+**Outstanding at the time:** 33 tests pass, `tsc` and `vite build` clean, path grammar verified against live data — but nobody had opened this in a browser (this session's Chromium can't reach external hosts through the sandbox proxy). No conflict had been observed end-to-end either, since conflicts require a `confirmed`/`edited` field and nothing was confirmed before this screen existed.
+
+## Task 9 — browser verification (2026-08-09)
+
+Ran `npm run dev` on a real machine (macOS) against the live Supabase project (`fvtazfdppcajoglteutz`) — first human eyes on the Review screen. Clean startup on `localhost:5173`, no build errors, no console errors.
+
+**Documents tab**, for the record at time of check: one document `complete` (`1785756069624-1-10.pdf`), one `pending` with an Extract button, one `failed` at chunk 21/26 with the diagnosed Gemini 429/quota error (`client-split-1786191381363.pdf`, Retry button present), and one older pre-chunking upload `failed: "no chunk_plan"` (`drhp-chunked-1786190400.pdf` — expected, predates client-side chunking, not a bug).
+
+**Facts Review tab — confirmed working against real data:**
+- Stats bar: 1 confirmed / 0 edited / 526 from AI / 100 empty. Domain grouping renders (Company section checked in detail: legal name `VERITAS FINANCE LIMITED`, CIN, incorporation date, registered office, industry, business description all populated with confidence badges and clickable source links carrying real page refs, e.g. `client-split-1786191381363.pdf p.181`).
+- **Inline edit + status transition verified**: edited `company.legalName`, save succeeded, status flipped `ai → confirmed → edited` across the interaction, stats bar updated in sync (1 confirmed/0 edited → 0 confirmed/1 edited).
+- **Diff trail verified as real, not just wired**: history (14 entries) showed the original extraction event, then ~12 `"Also seen in <doc> — kept existing value"` entries from the chunked re-run (timestamped across the actual chunk run), then the human correction, in correct chronological order.
+- **Bonus finding**: those "kept existing value" entries are live proof the merge precedence table's no-op branch (same-or-lower-confidence proposal against an already-set field → keep, discard) is firing correctly in production, not just in the 18 `merge()` unit tests. Still unverified: the *differing*-value branch that raises an actual `FactConflict` — needs a confirmed field plus a disagreeing re-extraction, which costs Gemini quota to force.
+
+**Decision arising from this session:** not pursuing Gemini billing tonight. Demo plan is to extract a smaller document (30–50 pages, well inside the free tier's 20 req/day cap) end-to-end instead of finishing the 503-page DRHP, which stays parked at 19/26.
