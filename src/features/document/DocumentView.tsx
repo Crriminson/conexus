@@ -5,6 +5,7 @@ import { useOpenSource } from '@/hooks/useOpenSource'
 import { assembleSections } from '@/lib/templates'
 import type { Section, SectionCell } from '@/lib/templates'
 import { EligibilityCard } from '@/features/eligibility/EligibilityCard'
+import { ExportButton } from '@/features/export/ExportButton'
 
 const STATUS_STYLES: Record<Section['status'], string> = {
   ready: 'bg-green-100 text-green-800',

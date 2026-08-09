@@ -10,7 +10,9 @@ Five-step plan: (1) pluggable AI provider, (2) browser + live-data verification 
 
 **Step 1 — pluggable AI provider: done.** `supabase/functions/_shared/llm/` now holds an `LLMProvider` interface (`types.ts`), a Gemini implementation taking config instead of reading env directly (`geminiProvider.ts`), a no-network mock implementation for tests (`mockProvider.ts`), and an env-driven factory (`config.ts`, reads `LLM_PROVIDER` — defaults to `gemini` — plus `GEMINI_API_KEY`/`GEMINI_MODEL`/`GEMINI_BASE_URL`). `callLLM.ts` is now a thin wrapper over the factory so `extract/index.ts` didn't need to change. Re-exported via `src/lib/llm/` (same pattern as `merge()`) so it's Vitest-testable; 16 new tests against a mocked `fetch` and the mock provider, all passing (92/92 suite-wide). Gemini was not called during this work.
 
-**Pre-existing bug found during typecheck, not yet fixed (out of Step 1's scope):** `src/features/document/DocumentView.tsx` uses `<ExportButton>` (line 59) but never imports it from `src/features/export/ExportButton.tsx`. This predates this session (confirmed via `git stash -u` against a clean `updates/v1.1` checkout) and breaks `npm run build` (`tsc -b` fails) — it will also break the Document tab at runtime the moment Step 2's browser check reaches it. One-line fix (add the import); flagged rather than fixed since it isn't part of Step 1.
+**Pre-existing bug found during Step 1's typecheck, now fixed.** `src/features/document/DocumentView.tsx` used `<ExportButton>` but never imported it from `src/features/export/ExportButton.tsx` (predates this session — confirmed via `git stash -u` against a clean `updates/v1.1` checkout). Broke `npm run build`. Fixed with the missing import; `npm run build` and the full test suite (92/92) are both clean as of this fix.
+
+**Step 2 — browser + live-data verification: in progress.** See the "Step 2 seed data" section below for what was seeded, how, and the teardown command.
 
 ## What's built and verified
 
