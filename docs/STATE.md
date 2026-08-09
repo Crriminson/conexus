@@ -2,6 +2,16 @@
 
 A cold session (fresh clone, no prior context) should read this before anything else. `docs/PROGRESS.md` has the full task-by-task history if you need the detail behind any of this; `docs/DECISIONS.md` has the reasoning behind non-obvious calls; `docs/SETUP.md` has everything needed to actually run this.
 
+## Current phase (2026-08-09): full app completion, not just demo readiness
+
+Branch of record is now `updates/v1.1` (the branch this history lives on — a separate session branch had been cut from `main`, which lacked all of Tasks 9–14; that's fixed, `updates/v1.1` is source of truth going forward, no new branches off `main`).
+
+Five-step plan: (1) pluggable AI provider, (2) browser + live-data verification of Tasks 10/11/13/14, (3) UI gap-fill against `ARCHITECTURE.md`, (4) Task 12 (generate-section) built against the pluggable provider, (5) final cleanup/docs pass.
+
+**Step 1 — pluggable AI provider: done.** `supabase/functions/_shared/llm/` now holds an `LLMProvider` interface (`types.ts`), a Gemini implementation taking config instead of reading env directly (`geminiProvider.ts`), a no-network mock implementation for tests (`mockProvider.ts`), and an env-driven factory (`config.ts`, reads `LLM_PROVIDER` — defaults to `gemini` — plus `GEMINI_API_KEY`/`GEMINI_MODEL`/`GEMINI_BASE_URL`). `callLLM.ts` is now a thin wrapper over the factory so `extract/index.ts` didn't need to change. Re-exported via `src/lib/llm/` (same pattern as `merge()`) so it's Vitest-testable; 16 new tests against a mocked `fetch` and the mock provider, all passing (92/92 suite-wide). Gemini was not called during this work.
+
+**Pre-existing bug found during typecheck, not yet fixed (out of Step 1's scope):** `src/features/document/DocumentView.tsx` uses `<ExportButton>` (line 59) but never imports it from `src/features/export/ExportButton.tsx`. This predates this session (confirmed via `git stash -u` against a clean `updates/v1.1` checkout) and breaks `npm run build` (`tsc -b` fails) — it will also break the Document tab at runtime the moment Step 2's browser check reaches it. One-line fix (add the import); flagged rather than fixed since it isn't part of Step 1.
+
 ## What's built and verified
 
 Tasks 1–8 of `docs/ARCHITECTURE.md` section 9 are done: scaffold, fact types (`src/types/facts/`), Supabase schema + client, TanStack Query hooks, upload UI (drag-drop + click, both verified working), the Gemini `extract` Edge Function, the `merge()` pure function (18 passing Vitest tests), and the wiring between all of them.
