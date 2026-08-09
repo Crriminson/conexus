@@ -52,7 +52,12 @@ export function DocumentView({ projectId }: { projectId: string }) {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
-      <EligibilityCard facts={project.facts} />
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1">
+          <EligibilityCard facts={project.facts} />
+        </div>
+        <ExportButton facts={project.facts} documents={docs} />
+      </div>
 
       {sections.map((section) => (
         <section key={section.id} className="flex flex-col gap-1">

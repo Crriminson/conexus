@@ -1,5 +1,5 @@
 import type { Field } from '@/types/facts'
-import type { SectionCell } from './types'
+import type { Section, SectionCell } from './types'
 
 // Computed sections read confirmed facts only (architecture §9 task 11,
 // reaffirmed 2026-08-09 after finding contaminated test data): an
@@ -14,4 +14,12 @@ export function cellFromField(label: string, field: Field<unknown>): SectionCell
     sourceDocId: confirmed ? field.sourceDocId : null,
     sourcePage: confirmed ? field.sourcePage : null,
   }
+}
+
+// Every row in a computed section has the same shape (one cell per column),
+// so a multi-cell row means the section renders as a table rather than a
+// key-value list. Shared between Task 13's DocumentView and Task 14's export
+// so both renderers agree on which sections are tables.
+export function isTable(section: Section): boolean {
+  return (section.rows ?? []).some((row) => row.length > 1)
 }

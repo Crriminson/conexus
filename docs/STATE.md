@@ -41,7 +41,7 @@ The demo centerpiece per section 9. Built along with its prerequisite:
 
 ## Demo plan (revised 2026-08-09) — Gemini quota decision now deferred to the end
 
-Gap-list review of Tasks 10–14 against the architecture doc: Task 11 (templates) required, Task 13 (document view) required, Task 10 (eligibility) required but zero Gemini dependency, Task 12 (generate-section) and Task 14 (export) deferred.
+Gap-list review of Tasks 10–14 against the architecture doc: Task 11 (templates) required, Task 13 (document view) required, Task 10 (eligibility) required but zero Gemini dependency, Task 12 (generate-section) deferred (blocked on Gemini quota). Task 14 (export) was initially deferred too but was later built ahead of the quota decision, same as 10/11/13 — see below.
 
 **Before Task 11 was built, the live project's facts were checked and found unusable**: zero fields anywhere were `confirmed` (526 `ai` / 100 `empty` / 1 `edited`), and the singleton project's facts were contaminated — `company.legalName` read "VERITAS FINANCE LIMITED" while `company.industry` read "Topical Generics Pharmaceuticals", i.e. two unrelated companies' test uploads had merged into one project's fact set (the singleton-project design merges every upload into the same row, and tonight's testing uploaded documents from different companies into it). **Project facts/conflicts/merge_events were wiped back to empty** (CAS-conditioned PATCH, version bumped 23→24) rather than build against contaminated data.
 
@@ -51,9 +51,10 @@ The document assumed to be "the 30–50 page demo doc" (`1785756069624.pdf`) was
 
 ## Exact next action
 
-1. Build Task 10 (`src/lib/eligibility/`) — zero Gemini dependency even in production, build and test fully now against fixture/real data, no need to wait.
-2. Once the Gemini quota decision is made (buy credits vs. smaller doc) and a real demo document is extracted: hand-confirm the ~12–15 fields Tasks 11/13 need, re-verify `src/lib/templates/` and `DocumentView` against that live data (currently only fixture-verified), and check for duplicate/near-identical records (promoters showed this pattern before — see open item 2) before confirming anything.
-3. Tasks 12 (`generate-section`) and 14 (export) remain deferred.
+1. ~~Build Task 10 (`src/lib/eligibility/`)~~ — done, see below.
+2. ~~Build Task 14 (export)~~ — done, see below. Tasks 10, 11, 13, 14 are all code-complete and fixture-tested; only Task 12 (`generate-section`) remains blocked on the Gemini quota decision.
+3. Once the Gemini quota decision is made (buy credits vs. smaller doc) and a real demo document is extracted: hand-confirm the ~12–15 fields Tasks 11/13 need, re-verify `src/lib/templates/`, `DocumentView`, and the Task 14 export gate against that live data (currently only fixture-verified), and check for duplicate/near-identical records (promoters showed this pattern before — see open item 2) before confirming anything.
+4. Task 12 (`generate-section`) remains deferred — the only task actually blocked on the quota call.
 
 The differing-value conflict branch is still never observed end-to-end (needs a confirmed field + a re-extraction that disagrees, which costs quota) — worth forcing once quota allows, but not blocking anything else.
 
@@ -75,6 +76,16 @@ Notable design points worth knowing before extending this:
 - Overall status is worst-of across rules: any `fail` → `fail`; else any `warning` → `warning`; else any `unknown` → `unknown`; else `pass`.
 
 **Verification status: fixture only**, same caveat as Tasks 11/13 — `tsc`/`vitest`/`vite build` clean, but never run against real Supabase data or seen in a browser.
+
+## Task 14 — export to Markdown (built, fixture-verified only)
+
+`src/lib/export/`: `checkExportGate(facts)` blocks export unless every computed section from Task 11's `assembleSections()` is `ready` (i.e. the exact same "Ready"/"Incomplete" bar the Document tab already shows — reused, not reimplemented, so the two can never disagree). `buildExportMarkdown(facts, documents)` renders the same sections as Markdown: static sections as prose, flat computed sections as a key-value list with inline source citations, repeating-group sections (shareholding) as a real Markdown table with a Source column. `exportProjectMarkdown()` combines gate + render, throwing `ExportNotAllowedError` (carries `missingFieldPaths`) instead of ever returning partial output. `downloadMarkdownFile()` is a thin Blob/anchor-click wrapper, same "not unit tested, it's a DOM one-liner" treatment as `useOpenSource`. `ExportButton` (`src/features/export/`) is wired into the top of the Document tab next to the eligibility card — disabled with a "N field(s) not confirmed yet" message when the gate fails.
+
+**The disclaimer text is a placeholder, not the real thing.** ARCHITECTURE.md names "verbatim liability disclaimer" as a requirement but never actually specifies the wording anywhere in the repo — flagged to the user directly rather than inventing legal text and calling it verbatim. Shipped `src/lib/export/disclaimer.ts` with clearly-marked placeholder copy (same convention as Task 11's static-section boilerplate). **Whoever owns the real legal text needs to supply it before this is a real deliverable** — see `docs/DECISIONS.md`.
+
+15 Vitest tests: gate blocks/allows correctly against fixture vs. empty facts, disclaimer text is present verbatim, section order matches Task 13, key-value and table rendering (including source citations) both checked against exact expected strings, "No records." on an empty computed section, filename slugification (confirmed name vs. fallback), and `exportProjectMarkdown` throwing with the right error type/payload on an incomplete dataset.
+
+**Verification status: fixture only**, same caveat as Tasks 10/11/13 — `tsc`/`vitest`/`vite build` clean (76/76 tests passing across the whole suite), but the Export button has never been clicked in a real browser and no real `.md` file has been downloaded and eyeballed yet.
 
 ## Open items — noted, not acted on
 

@@ -9,6 +9,7 @@ export { STATIC_SECTIONS } from './staticSections'
 export { buildCapitalStructureSection } from './capitalStructure'
 export { buildFinancialSummarySection } from './financials'
 export { buildShareholdingSection } from './shareholding'
+export { isTable } from './shared'
 
 // Fixed order for Task 13's document view: boilerplate first, then the
 // computed sections in the same order the architecture doc lists them.
