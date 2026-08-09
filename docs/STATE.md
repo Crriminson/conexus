@@ -16,7 +16,11 @@ Five-step plan: (1) pluggable AI provider, (2) browser + live-data verification 
 
 Seed data has been torn down (`scripts/teardown-seed-data.sh`, run and verified against Supabase directly): project `version` 26, `facts` fully empty, the seed `documents` row deleted, the 5 pre-existing e2e-test document rows untouched.
 
-**Next: Step 3 — UI gap-fill against `ARCHITECTURE.md`.** Read the architecture doc for UI requirements not yet met and report a gap list before building anything.
+**Step 3 — UI gap analysis against `ARCHITECTURE.md`: done, no build.** Two real gaps found, both already tracked, nothing new: the 3 AI-generated narrative sections don't exist yet (Task 12 — see the expanded scope below), and the disclaimer is still placeholder text (external blocker, unchanged). The "per-section/filing lock" line in §5 was checked and confirmed already satisfied by Task 14's export gate — no separate work needed. Full detail in `docs/PROGRESS.md`'s Step 3 entry.
+
+**Fixed alongside Step 3: `CLAUDE.md`'s stack line.** Listed Framer Motion/Zustand/react-hook-form/Zod, none of which are installed or used — flagged as outstanding since Task 1, now removed. **Found but not touched:** `CLAUDE.md`'s "Data model" section still points at `src/types/project.ts` (doesn't exist — real path is `src/types/facts/`); flagged to the user, not yet acted on.
+
+**Step 4 — Task 12 (generate-section), expanded scope (human call, 2026-08-09):** originally just the Edge Function; now the full path — add a "generated" section type to `assembleSections()` (Task 11), wire it into Document view rendering (Task 13), and wire it into export (Task 14). The Edge Function alone is not the deliverable; nothing renders or exports it without the other three. In progress now.
 
 **Standing rule from this point forward (2026-08-09):** every task, bugfix, or meaningful change is committed and pushed to `origin/updates/v1.1` immediately — not batched. "Committed, pushed, docs current" is part of the definition of done for every unit of work, not a separate step to ask about. `docs/STATE.md`/`docs/PROGRESS.md`/`docs/DECISIONS.md` get updated in the same commit as the change whenever the change affects status, decisions, or known issues (which is nearly always). **This is now also codified in `CLAUDE.md`** (a "Workflow rules" section) so a fresh session picks it up automatically without being re-told.
 

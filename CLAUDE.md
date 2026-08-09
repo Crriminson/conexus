@@ -1,7 +1,7 @@
 # Conexus rebuild — standing rules
 
 ## Stack
-React + TypeScript + Vite + Tailwind + shadcn/ui + wouter (routing) + Framer Motion + react-hook-form + Zod + Zustand (global state)
+React + TypeScript + Vite + Tailwind + shadcn/ui + wouter (routing)
 Backend/DB: Supabase (Postgres + Auth + Storage)
 
 ## Process

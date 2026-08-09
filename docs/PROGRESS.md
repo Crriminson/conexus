@@ -7,7 +7,7 @@ Read this before re-explaining anything. One entry per task: what was built/deci
 ## Task 1 — Scaffold
 Vite + React + TS + Tailwind + shadcn + wouter. Single route `/project`, no sidebar, no extra routes.
 **Files:** `package.json`, `vite.config.ts`, `tsconfig*.json`, `src/App.tsx`, `src/main.tsx`, `src/index.css`, `src/components/ui/button.tsx`.
-**Outstanding:** `CLAUDE.md`'s stack line still lists Zustand + Framer Motion; `docs/ARCHITECTURE.md` explicitly drops both in favor of TanStack Query. Never reconciled — CLAUDE.md needs a manual update.
+**Outstanding:** none. (Was: `CLAUDE.md`'s stack line listed Zustand + Framer Motion, never reconciled with `docs/ARCHITECTURE.md` dropping both in favor of TanStack Query. Fixed 2026-08-09 — see the "CLAUDE.md stack line fix" entry near the end of this file. That fix also found react-hook-form and Zod listed but unused/uninstalled, same issue; both removed too. Left open, deliberately not touched in that fix: `CLAUDE.md`'s "Data model" section still points at `src/types/project.ts`, which doesn't exist — the real data model is `src/types/facts/`, per `docs/ARCHITECTURE.md` §3.)
 
 ## Task 2 — Fact types
 `src/types/facts/`: `Field<T>` envelope + `FieldStatus`, six domain files (company, financials, promoters, capitalStructure, litigation, relatedParties), composite `IssuerFacts`. Repeating groups (promoters/litigation/relatedParties) are arrays of `{id} & Field<T>` records; the other three are flat.
@@ -249,3 +249,19 @@ Export gate: allowed=false, missingFieldPaths=['financials.netProfit']
 **Teardown run and verified directly against Supabase** (`scripts/teardown-seed-data.sh`): project version 25 → 26, `facts` confirmed fully empty (every leaf `status: 'empty'`, `value: null`), seed `documents` row confirmed deleted, all 5 pre-existing e2e-test document rows confirmed still present and untouched.
 
 **Outstanding:** none — Step 2 is closed. Tasks 10/11/13/14 have now each had a real first live-data browser verification, closing the gap flagged in every one of their "fixture-verified only" notes above. Next: Step 3.
+
+## Full-app-completion phase, Step 3 — UI gap analysis against ARCHITECTURE.md (no build)
+
+Read `docs/ARCHITECTURE.md` end to end and checked it against the actual codebase. Two real gaps, both already expected/tracked, nothing new: (1) the 3 AI-generated narrative sections (§2/§6 — Risk Factors, MD&A, Business Overview) don't exist yet, that's Task 12; and critically, `assembleSections()` (`src/lib/templates/index.ts`) has no "generated" section type slot at all today, so Task 12's scope was expanded (see below) to include the full path, not just the Edge Function. (2) The disclaimer is still placeholder text, not verbatim (§6) — already tracked as an external blocker in `docs/DECISIONS.md`, no new action.
+
+Checked and confirmed **not** gaps: the "per-section lock + filing lock → keep only the final one" line (§5) — satisfied by Task 14's export gate already, nothing further to build; Facts Review's domain coverage (§9 task 9) — all 6 domains, matches spec fully; merge semantics/provenance/confidence-amber threshold (§4) — match as built and tested.
+
+Also found, while grepping for Framer Motion/Zustand usage to verify §5's "remove" list was actually honored: `package.json` has neither of those, nor react-hook-form nor Zod — all four were correctly never installed despite `CLAUDE.md`'s stack line still listing them. See the next entry for the fix.
+
+## CLAUDE.md stack line fix (2026-08-09)
+
+`CLAUDE.md`'s "Stack" line listed Framer Motion, Zustand, react-hook-form, and Zod — none installed (`package.json`) or used anywhere in `src/` (grepped to confirm). This was flagged as outstanding back in Task 1 and never fixed. One-line removal: `React + TypeScript + Vite + Tailwind + shadcn/ui + wouter (routing)`, matching what's actually in `package.json` and `docs/ARCHITECTURE.md` §2's stack list.
+
+**Files:** `CLAUDE.md`, `docs/PROGRESS.md` (this entry + closing Task 1's outstanding note).
+
+**Found but deliberately not touched in this fix (separate, not asked for):** `CLAUDE.md`'s "Data model" section still says the data model lives in `src/types/project.ts` — that path doesn't exist. The real data model is `src/types/facts/` (matches `docs/ARCHITECTURE.md` §3). Flagged to the user; needs a decision, not fixed here since this fix was scoped to the stack line only.
