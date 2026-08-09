@@ -4,6 +4,7 @@ import { useDocuments } from '@/hooks/useDocuments'
 import { useOpenSource } from '@/hooks/useOpenSource'
 import { assembleSections } from '@/lib/templates'
 import type { Section, SectionCell } from '@/lib/templates'
+import { EligibilityCard } from '@/features/eligibility/EligibilityCard'
 
 const STATUS_STYLES: Record<Section['status'], string> = {
   ready: 'bg-green-100 text-green-800',
@@ -51,6 +52,8 @@ export function DocumentView({ projectId }: { projectId: string }) {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+      <EligibilityCard facts={project.facts} />
+
       {sections.map((section) => (
         <section key={section.id} className="flex flex-col gap-1">
           <div className="flex items-center gap-2">

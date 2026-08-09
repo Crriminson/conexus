@@ -170,3 +170,17 @@ Checked the document assumed to be the "30–50 page demo doc" (`1785756069624.p
 **Files:** `src/features/document/DocumentView.tsx`, `src/App.tsx` (added tab).
 
 **Outstanding:** same as Task 11 — `tsc`/`vitest`/`vite build` clean, renders correctly against the fixture logically (verified via Task 11's fixture test, since `DocumentView` is a thin render of `assembleSections()`'s output), but the component itself has never been opened in a browser, fixture or live. No component-testing infrastructure exists in this codebase (all tests so far are pure-function) — consistent with how Task 9's screen was verified (a human, not an automated render test), that's what real verification here will require too.
+
+## Task 10 — eligibility engine
+
+`src/lib/eligibility/`: `types.ts` (`EligibilityStatus`, `EligibilityBasis`, `EligibilityRuleResult`, `EligibilityReport`), `rules.ts` (6 pure rule functions + a `RULES` config array — net worth positive, profitable, minimum 20% promoter contribution, capital structure consistency, no pending material litigation, CIN format), `evaluate.ts` (`evaluateEligibility()`, worst-of aggregation: fail > warning > unknown > pass), `index.ts` re-exports. `src/features/eligibility/EligibilityCard.tsx` renders the traffic light + per-rule detail list; wired into `DocumentView` above the assembled sections.
+
+**Deliberate design choice, different from Task 11:** this engine reads whatever value is present regardless of `status` (not confirmed-only) — it's meant as a live signal that updates as extraction happens, not a gate on what gets assembled or exported. Every result carries `basis: 'confirmed' | 'unconfirmed' | 'missing'` so a green light backed only by unreviewed AI output is visibly distinguishable (a small "AI-only, unconfirmed" badge) from one backed by confirmed data. This was a judgment call, not dictated by the architecture doc (which only specifies "deterministic rules + traffic-light card"), flagged here in case it should be reconsidered.
+
+Two rules got extra care because their naive version would have been wrong:
+- **Minimum promoter contribution (20%)** distinguishes "known holdings already clear 20%, so it doesn't matter that other promoters are still unconfirmed" (→ `pass`) from "known holdings fall short and some promoters are still unconfirmed, so the true total isn't knowable yet" (→ `unknown`, deliberately not `fail`) — both branches are pinned with tests, since collapsing them would either wrongly fail a company that's actually fine or wrongly pass one that isn't.
+- **Profitable** warns rather than fails on a loss — the schema only holds one year of financials, nowhere near the multi-year distributable-profits track record real SEBI ICDR eligibility rules actually require, so failing outright would overclaim precision this data doesn't support.
+
+**Files:** `src/lib/eligibility/{types,rules,evaluate,index}.ts`, `src/lib/eligibility/eligibility.test.ts` (17 tests), `src/features/eligibility/EligibilityCard.tsx`, `src/features/document/DocumentView.tsx` (wired), `src/lib/templates/fixtures.ts` (added a litigation record — the fixture was missing one, which the fixture-consistency test caught immediately).
+
+**Outstanding:** fixture-verified only, same as Tasks 11 and 13 — never run against real Supabase data or seen in a browser. Zero Gemini dependency means this one has no further blocker once real confirmed data exists; it'll just work.

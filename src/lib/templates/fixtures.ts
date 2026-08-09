@@ -59,6 +59,18 @@ export function fixtureIssuerFacts(): IssuerFacts {
     },
   ]
 
+  facts.litigation = [
+    {
+      id: 'litigation-1',
+      caseNumber: confirmed('WP/1234/2022', 40),
+      forum: confirmed('Madras High Court', 40),
+      partiesInvolved: confirmed('Acme Industries Limited vs. State Tax Officer', 40),
+      natureOfProceeding: confirmed('Tax dispute', 40),
+      amountInvolved: confirmed(2500000, 40),
+      status: confirmed('Disposed', 40),
+    },
+  ]
+
   return facts
 }
 

@@ -65,6 +65,17 @@ The differing-value conflict branch is still never observed end-to-end (needs a 
 
 **Verification status: fixture only, not live.** `src/lib/templates/fixtures.ts` provides a fully-confirmed, schema-accurate `IssuerFacts` fixture (2 promoters, all domains populated) — `tsc`/`vitest`/`vite build` all clean, and a test confirms every computed section reads `ready` against it. **Nobody has looked at the Document tab in a browser** (same Chromium-can't-reach-network limitation as everything else this session), and it has never rendered real Supabase data — only the fixture. Re-verify both once the Gemini quota decision lands and a real document gets hand-confirmed.
 
+## Task 10 — eligibility engine (built, fixture-verified only)
+
+`src/lib/eligibility/`: 6 deterministic rules over `IssuerFacts` (net worth positive, profitable, minimum 20% promoter contribution, capital structure consistency, no pending material litigation, CIN format), each pure and independently unit-tested (17 tests). Unlike Task 11, this engine reads **whatever value is present regardless of status** — it's a live at-a-glance signal, not a gate on what gets assembled/exported — but every result carries a `basis: 'confirmed' | 'unconfirmed' | 'missing'` so the UI can visibly distinguish a green light backed by verified data from one backed only by an AI guess. Zero Gemini dependency, built and tested fully rather than deferred. `EligibilityCard` (`src/features/eligibility/`) renders the traffic light; wired into the top of the Document tab.
+
+Notable design points worth knowing before extending this:
+- The 20%-promoter-contribution rule distinguishes "known holdings already clear 20%, so missing others doesn't matter" (`pass`) from "known holdings are short and some promoters are still unconfirmed, so the true total is unknowable" (`unknown`, not `fail`) — both cases are pinned with tests.
+- `profitable` warns rather than fails on a loss (a single bad year isn't disqualifying, and this schema only holds one year's financials anyway — not the multi-year distributable-profits track record real SEBI ICDR eligibility actually requires).
+- Overall status is worst-of across rules: any `fail` → `fail`; else any `warning` → `warning`; else any `unknown` → `unknown`; else `pass`.
+
+**Verification status: fixture only**, same caveat as Tasks 11/13 — `tsc`/`vitest`/`vite build` clean, but never run against real Supabase data or seen in a browser.
+
 ## Open items — noted, not acted on
 
 These are known and deliberately parked. Don't treat them as bugs to fix on sight; they need a human call or an external unblock.
