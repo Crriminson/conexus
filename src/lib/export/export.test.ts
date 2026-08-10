@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { emptyIssuerFacts } from '@/types/facts/empty'
-import { fixtureDocuments, fixtureIssuerFacts } from '@/lib/templates/fixtures'
+import { fixtureDocuments, fixtureGeneratedSections, fixtureIssuerFacts } from '@/lib/templates/fixtures'
 import { LIABILITY_DISCLAIMER } from './disclaimer'
 import { checkExportGate } from './gate'
 import { buildExportMarkdown, exportFilename } from './markdown'
@@ -14,17 +14,24 @@ describe('checkExportGate', () => {
     expect(gate.missingFieldPaths).toContain('capitalStructure.authorizedCapital')
   })
 
-  it('allows export once the fully-confirmed fixture is used', () => {
-    const gate = checkExportGate(fixtureIssuerFacts())
+  it('allows export once the fully-confirmed fixture and all 3 generated sections are present', () => {
+    const gate = checkExportGate(fixtureIssuerFacts(), fixtureGeneratedSections())
     expect(gate).toEqual({ allowed: true, missingFieldPaths: [] })
   })
 
   it('blocks export when even one field Task 11 needs is still unconfirmed', () => {
     const facts = fixtureIssuerFacts()
     facts.capitalStructure.authorizedCapital.status = 'ai'
-    const gate = checkExportGate(facts)
+    const gate = checkExportGate(facts, fixtureGeneratedSections())
     expect(gate.allowed).toBe(false)
     expect(gate.missingFieldPaths).toEqual(['capitalStructure.authorizedCapital'])
+  })
+
+  it('blocks export when facts are confirmed but a generated section is still missing (Task 12)', () => {
+    const { riskFactors: _riskFactors, ...rest } = fixtureGeneratedSections()
+    const gate = checkExportGate(fixtureIssuerFacts(), rest)
+    expect(gate.allowed).toBe(false)
+    expect(gate.missingFieldPaths).toEqual(['generated.riskFactors'])
   })
 })
 
@@ -44,10 +51,19 @@ describe('buildExportMarkdown', () => {
     expect(markdown.startsWith('# Draft Red Herring Prospectus\n')).toBe(true)
   })
 
-  it('renders every section from Task 11, in the same order Task 13 uses', () => {
-    const markdown = buildExportMarkdown(fixtureIssuerFacts(), fixtureDocuments())
+  it('renders every section in the same order Task 13 uses, static/computed/generated', () => {
+    const markdown = buildExportMarkdown(fixtureIssuerFacts(), fixtureDocuments(), fixtureGeneratedSections())
     const headingOrder = [...markdown.matchAll(/^## (.+)$/gm)].map((m) => m[1])
-    expect(headingOrder).toEqual(['Definitions', 'General Information', 'Capital Structure', 'Shareholding Pattern', 'Financial Summary'])
+    expect(headingOrder).toEqual([
+      'Definitions',
+      'General Information',
+      'Capital Structure',
+      'Shareholding Pattern',
+      'Financial Summary',
+      'Risk Factors',
+      'Management Discussion & Analysis',
+      'Business Overview',
+    ])
   })
 
   it('renders flat computed sections as a key-value list with source citations', () => {
@@ -64,6 +80,16 @@ describe('buildExportMarkdown', () => {
   it('renders "No records." for a computed section with zero rows', () => {
     const markdown = buildExportMarkdown(emptyIssuerFacts(), [])
     expect(markdown).toContain('## Shareholding Pattern\n\n_No records._')
+  })
+
+  it('renders a generated section as prose with a Sources line built from its citations', () => {
+    const markdown = buildExportMarkdown(fixtureIssuerFacts(), fixtureDocuments(), fixtureGeneratedSections())
+    expect(markdown).toContain('## Risk Factors\n\nFixture risk factors text.\n\n**Sources:** Legal name (acme-drhp-fixture.pdf, p.1)')
+  })
+
+  it('renders a placeholder for a generated section that has not been generated yet', () => {
+    const markdown = buildExportMarkdown(fixtureIssuerFacts(), fixtureDocuments())
+    expect(markdown).toContain('## Risk Factors\n\n_Not yet generated._')
   })
 })
 
@@ -82,6 +108,10 @@ describe('exportProjectMarkdown', () => {
     expect(() => exportProjectMarkdown(emptyIssuerFacts(), [])).toThrow(ExportNotAllowedError)
   })
 
+  it('throws ExportNotAllowedError when facts are confirmed but generated sections are missing', () => {
+    expect(() => exportProjectMarkdown(fixtureIssuerFacts(), fixtureDocuments())).toThrow(ExportNotAllowedError)
+  })
+
   it('carries the missing field paths on the thrown error', () => {
     let caught: unknown
     try {
@@ -96,6 +126,9 @@ describe('exportProjectMarkdown', () => {
   it('returns the same Markdown buildExportMarkdown would, once the gate passes', () => {
     const facts = fixtureIssuerFacts()
     const documents = fixtureDocuments()
-    expect(exportProjectMarkdown(facts, documents)).toBe(buildExportMarkdown(facts, documents))
+    const generatedSections = fixtureGeneratedSections()
+    expect(exportProjectMarkdown(facts, documents, generatedSections)).toBe(
+      buildExportMarkdown(facts, documents, generatedSections),
+    )
   })
 })

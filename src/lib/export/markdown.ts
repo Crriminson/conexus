@@ -1,7 +1,8 @@
 import type { IssuerFacts } from '@/types/facts'
 import type { DocumentRow } from '@/hooks/useDocuments'
+import type { GeneratedSections } from '@/lib/generatedSections'
 import { assembleSections, isTable } from '@/lib/templates'
-import type { Section, SectionCell } from '@/lib/templates'
+import type { Section, SectionCell, SectionCitation } from '@/lib/templates'
 import { LIABILITY_DISCLAIMER } from './disclaimer'
 
 function formatValue(value: unknown): string {
@@ -50,11 +51,28 @@ function renderTableSection(section: Section, documents: DocumentRow[]): string 
   return [header, separator, body].join('\n')
 }
 
+function citationLine(citations: SectionCitation[] | undefined, documents: DocumentRow[]): string {
+  if (!citations || citations.length === 0) return ''
+  const parts = citations.map((citation) => {
+    const doc = documents.find((d) => d.id === citation.sourceDocId)
+    const source = doc
+      ? `${doc.filename}${citation.sourcePage ? `, p.${citation.sourcePage}` : ''}`
+      : citation.sourceDocId
+    return `${citation.label} (${source})`
+  })
+  return `\n\n**Sources:** ${parts.join('; ')}`
+}
+
 function renderSection(section: Section, documents: DocumentRow[]): string {
   const heading = `## ${section.title}`
 
   if (section.kind === 'static') {
     return `${heading}\n\n${section.body ?? ''}`
+  }
+
+  if (section.kind === 'generated') {
+    const body = section.body ?? '_Not yet generated._'
+    return `${heading}\n\n${body}${citationLine(section.citations, documents)}`
   }
 
   if ((section.rows ?? []).length === 0) {
@@ -74,8 +92,12 @@ function exportTitle(facts: IssuerFacts): string {
 // Renders the same sections Task 13's DocumentView shows, as Markdown.
 // Pure and gate-agnostic — callers that need to enforce all-facts-confirmed
 // before exporting should check `checkExportGate()` first (see ./gate).
-export function buildExportMarkdown(facts: IssuerFacts, documents: DocumentRow[]): string {
-  const sections = assembleSections(facts).map((section) => renderSection(section, documents))
+export function buildExportMarkdown(
+  facts: IssuerFacts,
+  documents: DocumentRow[],
+  generatedSections: GeneratedSections = {},
+): string {
+  const sections = assembleSections(facts, generatedSections).map((section) => renderSection(section, documents))
   return [`# ${exportTitle(facts)}`, LIABILITY_DISCLAIMER, ...sections].join('\n\n') + '\n'
 }
 

@@ -3,9 +3,10 @@ import { useProject } from '@/hooks/useProject'
 import { useDocuments } from '@/hooks/useDocuments'
 import { useOpenSource } from '@/hooks/useOpenSource'
 import { assembleSections } from '@/lib/templates'
-import type { Section, SectionCell } from '@/lib/templates'
+import type { Section } from '@/lib/templates'
 import { EligibilityCard } from '@/features/eligibility/EligibilityCard'
 import { ExportButton } from '@/features/export/ExportButton'
+import { GenerateSectionsButton } from '@/features/generate/GenerateSectionsButton'
 
 const STATUS_STYLES: Record<Section['status'], string> = {
   ready: 'bg-green-100 text-green-800',
@@ -28,7 +29,10 @@ export function DocumentView({ projectId }: { projectId: string }) {
   const { data: documents } = useDocuments(projectId)
   const openSource = useOpenSource()
 
-  const sections = useMemo(() => (project ? assembleSections(project.facts) : []), [project])
+  const sections = useMemo(
+    () => (project ? assembleSections(project.facts, project.generated_sections) : []),
+    [project],
+  )
   const docs = documents ?? []
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading document…</p>
@@ -36,17 +40,19 @@ export function DocumentView({ projectId }: { projectId: string }) {
     return <p className="text-sm text-destructive">Failed to load document: {(error as Error)?.message}</p>
   }
 
-  const sourceLink = (cell: SectionCell) => {
-    const doc = docs.find((d) => d.id === cell.sourceDocId)
+  // Shared by computed-section cells and generated-section citations — both
+  // are just a { sourceDocId, sourcePage } pair pointing at a document.
+  const sourceLink = (source: { sourceDocId: string | null; sourcePage: number | null }) => {
+    const doc = docs.find((d) => d.id === source.sourceDocId)
     if (!doc) return null
     return (
       <button
         type="button"
-        onClick={() => openSource(doc.storage_path, cell.sourcePage).catch(() => {})}
+        onClick={() => openSource(doc.storage_path, source.sourcePage).catch(() => {})}
         className="text-primary underline-offset-2 hover:underline"
       >
         {doc.filename}
-        {cell.sourcePage ? ` p.${cell.sourcePage}` : ''}
+        {source.sourcePage ? ` p.${source.sourcePage}` : ''}
       </button>
     )
   }
@@ -57,7 +63,14 @@ export function DocumentView({ projectId }: { projectId: string }) {
         <div className="flex-1">
           <EligibilityCard facts={project.facts} />
         </div>
-        <ExportButton facts={project.facts} documents={docs} />
+        <div className="flex flex-col items-end gap-2">
+          <GenerateSectionsButton
+            projectId={projectId}
+            facts={project.facts}
+            generatedSections={project.generated_sections}
+          />
+          <ExportButton facts={project.facts} documents={docs} generatedSections={project.generated_sections} />
+        </div>
       </div>
 
       {sections.map((section) => (
@@ -67,14 +80,33 @@ export function DocumentView({ projectId }: { projectId: string }) {
             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[section.status]}`}>
               {section.status === 'ready'
                 ? 'Ready'
-                : `Incomplete${
-                    section.missingFieldPaths.length > 0 ? ` — ${section.missingFieldPaths.length} pending` : ''
-                  }`}
+                : section.kind === 'generated'
+                  ? 'Not yet generated'
+                  : `Incomplete${
+                      section.missingFieldPaths.length > 0 ? ` — ${section.missingFieldPaths.length} pending` : ''
+                    }`}
             </span>
           </div>
 
           <div className="rounded-lg border px-3 py-2">
             {section.kind === 'static' && <p className="text-sm text-muted-foreground">{section.body}</p>}
+
+            {section.kind === 'generated' && (
+              <div className="flex flex-col gap-2">
+                <p className="text-sm whitespace-pre-wrap">{section.body ?? 'Not yet generated.'}</p>
+                {(section.citations?.length ?? 0) > 0 && (
+                  <div className="flex flex-wrap gap-x-1 gap-y-1 border-t pt-2 text-xs text-muted-foreground">
+                    <span>Sources:</span>
+                    {section.citations!.map((citation, index) => (
+                      <span key={citation.fieldPath}>
+                        {citation.label} ({sourceLink(citation)})
+                        {index < section.citations!.length - 1 ? ';' : ''}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {section.kind === 'computed' && (section.rows?.length ?? 0) === 0 && (
               <p className="text-sm text-muted-foreground">No records.</p>

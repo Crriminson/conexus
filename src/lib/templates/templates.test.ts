@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { Field, IssuerFacts } from '@/types/facts'
 import { emptyIssuerFacts } from '@/types/facts/empty'
 import { fixtureIssuerFacts } from './fixtures'
-import { assembleSections, buildCapitalStructureSection, buildFinancialSummarySection, buildShareholdingSection } from './index'
+import {
+  assembleSections,
+  buildCapitalStructureSection,
+  buildFinancialSummarySection,
+  buildGeneratedSections,
+  buildShareholdingSection,
+} from './index'
+import type { GeneratedSections } from '@/lib/generatedSections'
 
 function confirmedField<T>(value: T, page = 1): Field<T> {
   return {
@@ -159,8 +166,45 @@ describe('buildShareholdingSection', () => {
   })
 })
 
+describe('buildGeneratedSections', () => {
+  it('is incomplete with a generated.<key> marker when nothing has been generated yet', () => {
+    const sections = buildGeneratedSections({})
+    expect(sections.map((s) => s.id)).toEqual(['risk-factors', 'mdna', 'business-overview'])
+    for (const section of sections) {
+      expect(section.status).toBe('incomplete')
+      expect(section.body).toBeUndefined()
+      expect(section.citations).toEqual([])
+    }
+    expect(sections.map((s) => s.missingFieldPaths)).toEqual([
+      ['generated.riskFactors'],
+      ['generated.mdAndA'],
+      ['generated.businessOverview'],
+    ])
+  })
+
+  it('is ready per-section, independently, once generated content exists for it', () => {
+    const generatedSections: GeneratedSections = {
+      riskFactors: {
+        body: 'The company faces litigation risk.',
+        citations: [{ label: 'Litigation matter 1 — Status', fieldPath: 'litigation[lit-1].status', sourceDocId: 'doc-1', sourcePage: 12 }],
+        generatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    }
+    const sections = buildGeneratedSections(generatedSections)
+    const risk = sections.find((s) => s.id === 'risk-factors')
+    expect(risk?.status).toBe('ready')
+    expect(risk?.missingFieldPaths).toEqual([])
+    expect(risk?.body).toBe('The company faces litigation risk.')
+    expect(risk?.citations).toHaveLength(1)
+
+    const mdna = sections.find((s) => s.id === 'mdna')
+    expect(mdna?.status).toBe('incomplete')
+    expect(mdna?.missingFieldPaths).toEqual(['generated.mdAndA'])
+  })
+})
+
 describe('assembleSections', () => {
-  it('returns static sections first, then computed sections, in a stable order', () => {
+  it('returns static, then computed, then generated sections, in a stable order', () => {
     const sections = assembleSections(emptyIssuerFacts())
     expect(sections.map((s) => s.id)).toEqual([
       'definitions',
@@ -168,9 +212,19 @@ describe('assembleSections', () => {
       'capital-structure',
       'shareholding',
       'financial-summary',
+      'risk-factors',
+      'mdna',
+      'business-overview',
     ])
     expect(sections.filter((s) => s.kind === 'static')).toHaveLength(2)
     expect(sections.filter((s) => s.kind === 'computed')).toHaveLength(3)
+    expect(sections.filter((s) => s.kind === 'generated')).toHaveLength(3)
+  })
+
+  it('defaults generatedSections to {} when omitted, so all 3 generated sections are incomplete', () => {
+    const sections = assembleSections(emptyIssuerFacts())
+    const generated = sections.filter((s) => s.kind === 'generated')
+    expect(generated.every((s) => s.status === 'incomplete')).toBe(true)
   })
 
   // Pending the Gemini quota decision (2026-08-09), there's no live

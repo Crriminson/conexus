@@ -46,7 +46,10 @@ supabase/migrations/20260804000000_async_extraction.sql     -- documents.extract
 supabase/migrations/20260804000001_reaper.sql                -- pg_cron reaper for stuck extractions
 supabase/migrations/20260808000000_extraction_chunk_progress.sql  -- documents.extraction_total_chunks/extraction_completed_chunks
 supabase/migrations/20260808000100_document_chunk_plan.sql   -- documents.chunk_plan (client-side chunking)
+supabase/migrations/20260810000000_generated_sections.sql    -- projects.generated_sections (Task 12 narrative sections)
 ```
+
+**As of 2026-08-10, the last migration above (`generated_sections`) has NOT been applied to the live `fvtazfdppcajoglteutz` project** — the session that wrote Task 12 only had the anon key, which can't run DDL. Someone with DB/Management access needs to apply it before Task 12's Edge Function will work against live data. Check `select generated_sections from projects limit 1;` — if that errors with an unknown column, it hasn't been applied yet.
 
 Note: `supabase db push` (CLI) is the normal way to do this once linked, but wasn't reliably usable in this project's history due to CLI/environment quirks — direct `psql` against the connection string was used instead and is known to work. Either should be fine on a clean setup.
 
@@ -60,16 +63,17 @@ Create a bucket named `documents` (Dashboard → Storage → New bucket), **priv
 supabase login                              # opens a browser OAuth flow
 supabase link --project-ref fvtazfdppcajoglteutz   # will prompt for the DB password
 supabase functions deploy extract
+supabase functions deploy generate-section   # Task 12 — also NOT yet deployed as of 2026-08-10, same reason as the migration above
 ```
 
-Edge function logs: this CLI version has no `logs` subcommand — use the Dashboard (Project → Edge Functions → `extract` → Logs tab) instead.
+Edge function logs: this CLI version has no `logs` subcommand — use the Dashboard (Project → Edge Functions → `<function-name>` → Logs tab) instead.
 
 ## Running locally
 
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # vitest run — pure-function unit tests (merge, fieldPath, eligibility, templates, export, the LLM provider abstraction), no network/DB needed
+npm test           # vitest run — pure-function unit tests (merge, fieldPath, eligibility, templates, export, the LLM provider abstraction, generate-section's fact-collection/prompt/citation logic), no network/DB needed
 npm run build       # tsc -b && vite build
 ```
 

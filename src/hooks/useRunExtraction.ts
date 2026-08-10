@@ -1,21 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { documentsQueryKey } from './useDocuments'
-
-async function describeFunctionError(error: unknown): Promise<string> {
-  if (error && typeof error === 'object' && 'context' in error) {
-    const context = (error as { context?: unknown }).context
-    if (context instanceof Response) {
-      try {
-        const body = await context.clone().json()
-        if (body?.error) return String(body.error)
-      } catch {
-        // fall through to generic message below
-      }
-    }
-  }
-  return error instanceof Error ? error.message : 'Failed to start extraction'
-}
+import { describeFunctionError } from './describeFunctionError'
 
 // The pipeline itself (Gemini call, merge(), persist) now runs server-side
 // in the extract Edge Function's background task — see docs/PROGRESS.md,
@@ -27,7 +13,7 @@ export function useRunExtraction(projectId: string) {
   return useMutation({
     mutationFn: async (documentId: string) => {
       const { error } = await supabase.functions.invoke('extract', { body: { documentId } })
-      if (error) throw new Error(await describeFunctionError(error))
+      if (error) throw new Error(await describeFunctionError(error, 'Failed to start extraction'))
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: documentsQueryKey(projectId) })

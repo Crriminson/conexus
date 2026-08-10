@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { IssuerFacts } from '@/types/facts'
 import type { FactConflict, MergeEvent } from '@/lib/merge/types'
+import type { GeneratedSections } from '@/lib/generatedSections'
 import { documentsQueryKey, type DocumentRow } from './useDocuments'
 
 export interface ProjectRow {
@@ -10,6 +11,7 @@ export interface ProjectRow {
   facts: IssuerFacts
   conflicts: FactConflict[]
   merge_events: MergeEvent[]
+  generated_sections: GeneratedSections
   version: number
 }
 
@@ -25,7 +27,7 @@ export function useProject(projectId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('projects')
-        .select('id, name, facts, conflicts, merge_events, version')
+        .select('id, name, facts, conflicts, merge_events, generated_sections, version')
         .eq('id', projectId)
         .single()
 

@@ -1,5 +1,6 @@
 import type { IssuerFacts } from '@/types/facts'
 import type { DocumentRow } from '@/hooks/useDocuments'
+import type { GeneratedSections } from '@/lib/generatedSections'
 import { checkExportGate } from './gate'
 import { buildExportMarkdown } from './markdown'
 
@@ -22,8 +23,12 @@ export class ExportNotAllowedError extends Error {
 // Gate + render in one call — the entry point UI code should use. Throws
 // ExportNotAllowedError rather than returning partial Markdown, per
 // architecture §9 task 14: "Gate on all-facts-confirmed."
-export function exportProjectMarkdown(facts: IssuerFacts, documents: DocumentRow[]): string {
-  const gate = checkExportGate(facts)
+export function exportProjectMarkdown(
+  facts: IssuerFacts,
+  documents: DocumentRow[],
+  generatedSections: GeneratedSections = {},
+): string {
+  const gate = checkExportGate(facts, generatedSections)
   if (!gate.allowed) throw new ExportNotAllowedError(gate.missingFieldPaths)
-  return buildExportMarkdown(facts, documents)
+  return buildExportMarkdown(facts, documents, generatedSections)
 }

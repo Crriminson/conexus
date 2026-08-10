@@ -46,7 +46,7 @@ export function useUpdateFacts(projectId: string) {
       for (let attempt = 0; attempt < MAX_WRITE_RETRIES; attempt++) {
         const { data: project, error: readError } = await supabase
           .from('projects')
-          .select('id, name, facts, conflicts, merge_events, version')
+          .select('id, name, facts, conflicts, merge_events, generated_sections, version')
           .eq('id', projectId)
           .single()
 
@@ -67,7 +67,7 @@ export function useUpdateFacts(projectId: string) {
           .update({ facts: nextFacts, version: current.version + 1 })
           .eq('id', projectId)
           .eq('version', current.version)
-          .select('id, name, facts, conflicts, merge_events, version')
+          .select('id, name, facts, conflicts, merge_events, generated_sections, version')
 
         if (writeError) throw writeError
         if (updated && updated.length > 0) return updated[0] as ProjectRow

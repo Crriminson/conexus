@@ -1,16 +1,25 @@
 import { useState } from 'react'
 import type { IssuerFacts } from '@/types/facts'
 import type { DocumentRow } from '@/hooks/useDocuments'
+import type { GeneratedSections } from '@/lib/generatedSections'
 import { checkExportGate, buildExportMarkdown, exportFilename, downloadMarkdownFile } from '@/lib/export'
 
-export function ExportButton({ facts, documents }: { facts: IssuerFacts; documents: DocumentRow[] }) {
+export function ExportButton({
+  facts,
+  documents,
+  generatedSections,
+}: {
+  facts: IssuerFacts
+  documents: DocumentRow[]
+  generatedSections: GeneratedSections
+}) {
   const [error, setError] = useState<string | null>(null)
-  const gate = checkExportGate(facts)
+  const gate = checkExportGate(facts, generatedSections)
 
   const handleExport = () => {
     setError(null)
     try {
-      const markdown = buildExportMarkdown(facts, documents)
+      const markdown = buildExportMarkdown(facts, documents, generatedSections)
       downloadMarkdownFile(exportFilename(facts), markdown)
     } catch (err) {
       setError((err as Error).message)

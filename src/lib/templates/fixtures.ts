@@ -1,5 +1,6 @@
 import type { Field, IssuerFacts } from '@/types/facts'
 import { emptyIssuerFacts } from '@/types/facts/empty'
+import type { GeneratedSections } from '@/lib/generatedSections'
 
 // A fully-confirmed, schema-accurate fixture — for building and testing
 // Tasks 13/10 against realistic data while the live project's facts are
@@ -87,4 +88,16 @@ export function fixtureDocuments() {
       extraction_completed_chunks: 1,
     },
   ]
+}
+
+// Companion to fixtureIssuerFacts() — all 3 of Task 12's generated
+// sections present, for tests that need the export gate to actually pass.
+export function fixtureGeneratedSections(): GeneratedSections {
+  const citation = { label: 'Legal name', fieldPath: 'company.legalName', sourceDocId: 'fixture-doc', sourcePage: 1 }
+  const generatedAt = '2026-08-10T00:00:00.000Z'
+  return {
+    riskFactors: { body: 'Fixture risk factors text.', citations: [citation], generatedAt },
+    mdAndA: { body: 'Fixture MD&A text.', citations: [citation], generatedAt },
+    businessOverview: { body: 'Fixture business overview text.', citations: [citation], generatedAt },
+  }
 }

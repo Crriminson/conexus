@@ -3,6 +3,7 @@ import { callLLM } from '../_shared/callLLM.ts'
 import { merge } from '../_shared/merge/merge.ts'
 import type { ExtractedFacts } from '../_shared/merge/types.ts'
 import type { IssuerFacts } from '../_shared/factsTypes.ts'
+import { parseModelJson } from '../_shared/parseModelJson.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -199,21 +200,6 @@ function shiftSourcePages(facts: Omit<ExtractedFacts, 'documentId'>, offset: num
     litigation: facts.litigation.map((l) => asGroup(l)),
     relatedParties: facts.relatedParties.map((p) => asGroup(p)),
   } as Omit<ExtractedFacts, 'documentId'>
-}
-
-function parseModelJson(text: string): unknown {
-  let cleaned = text.trim()
-  if (cleaned.startsWith('```')) {
-    cleaned = cleaned
-      .replace(/^```[a-zA-Z]*\n?/, '')
-      .replace(/```$/, '')
-      .trim()
-  }
-  try {
-    return JSON.parse(cleaned)
-  } catch {
-    return null
-  }
 }
 
 // documentId -> best-effort marker so a killed worker's `beforeunload` can
