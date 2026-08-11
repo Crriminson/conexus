@@ -423,3 +423,13 @@ Go-ahead given for application-level logging (no RLS/triggers, matching this sch
 **Files:** `supabase/migrations/20260811000000_fact_events.sql`, `supabase/functions/_shared/factEvents/{types,recordFactEvents,getFactValue,index}.ts`, `src/lib/factEvents/{index,factEvents.test}.ts`, `supabase/functions/extract/index.ts`, `src/hooks/{useUpdateFacts,useResolveConflict}.ts`, `docs/STATE.md`, `docs/DECISIONS.md`, `docs/SETUP.md`.
 
 **Outstanding:** deployment access, same as `generated_sections` — nothing left to build until that's unblocked.
+
+## PR follow-up (comment 5254732312) — resolved merge conflicts with `origin/main`
+
+Merged `origin/main` into `updates/v1.1` to clear the PR conflict state. Kept this branch's rebuild-era resolutions for direct conflicts (`.gitignore`, `package.json`, `package-lock.json`) and kept this branch's deletions for old app files that conflicted as modify/delete (`prisma.config.ts`, `prisma/schema.prisma`, old `src/app` and legacy sidebar/auth/llmClient files). Main-only non-conflicting files merged as-is by Git.
+
+**Verification:** `npm ci`, `npm test -- --run` (149/149), and `npm run build` all pass after conflict resolution.
+
+**Files:** merge conflict set above, plus this `docs/PROGRESS.md` update.
+
+**Outstanding:** none for this comment request.
