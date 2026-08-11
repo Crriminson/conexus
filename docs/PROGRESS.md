@@ -309,3 +309,15 @@ Since the migration adding that column hasn't been applied yet. Both `DocumentVi
 Also found and fixed: `DocumentView.tsx` (rewritten in Step 4) had reintroduced a local `isTable()` instead of importing the shared one from `@/lib/templates`, undoing Task 14's dedup refactor. Restored the import. `tsc -b`/`vitest` (112/112)/`vite build` all clean after.
 
 **Files:** `src/features/document/DocumentView.tsx`, `docs/STATE.md`.
+
+## Full-app-completion phase, Step 5 (continued) — found the small demo doc, and a live differing-value conflict, neither logged anywhere
+
+Continuing the Step 5 pass, pulled the live project's current `facts`/`conflicts`/`merge_events` (anon key, read-only, before running any seed/teardown script against it) and found real activity from after `90d0774` that had never been written up in `STATE.md`/`PROGRESS.md`/`DECISIONS.md` — not performed by this session, discovered by reading live state.
+
+**`Draft_Abridge_Prospectus_ANP.pdf`** extracted successfully in a single chunk (2026-08-10, ~18:55–18:58) — the genuinely-small demo document `docs/STATE.md`'s "Demo plan" section spent 2026-08-09 looking for and never found. Produced 37 confirmed facts for a real company ("ANP Technologies Limited") across all 6 domains: company profile, 3 promoters (65.45% combined), 5 litigation records, 5 financial figures, capital structure. One merge event: `written=37, skipped=0, conflicts=0` (clean first merge into an empty project).
+
+**The same file was re-uploaded and re-extracted 2026-08-11 03:19**, and this run raised **3 real `FactConflict`s** — `company.industry`, `company.businessDescription`, `capitalStructure.paidUpCapital` — against the first run's confirmed values. `merge_events`: `written=9, skipped=28, conflicts=3`. This is the first live observation of the differing-value merge branch (`confirmed` + disagreeing proposal → keep, raise conflict) since it was flagged as unverified back in the Task 9 entry above — closes that gap for real, not via a fixture. All 3 conflicts are still `resolution: 'pending'`.
+
+**Not touched by this pass, deliberately:** resolving the 3 conflicts needs a human's actual judgment on which extraction was more accurate — not scripted. Full detail, including the exact conflict payloads, in `docs/STATE.md`'s "Found during Step 5" section (near the top) and updated "Open items"/"Demo plan" sections.
+
+**Files:** `docs/STATE.md` only (no code — this is a documentation catch-up of pre-existing live state, not a change to the app).
