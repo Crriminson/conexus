@@ -1,0 +1,80 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "./fonts.css";
+@import "./tokens.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  html {
+    @apply font-sans;
+  }
+
+  /* Headings default to the display face, used sparingly (see
+     docs/DESIGN_SYSTEM.md's type scale) — most UI text is not a heading. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer utilities {
+  /*
+   * Precise, citable values — financial figures, CIN numbers, page
+   * references, dates in citations — render in the data face with
+   * tabular figures so columns of numbers actually align. Apply this
+   * class anywhere a value is a fact pulled from a document, not prose.
+   */
+  .font-data {
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Interaction feedback via a tinted overlay rather than an abrupt
+   * background swap — re-evaluated from the old app's hover-elevate
+   * (docs/UI_INVENTORY.md flagged it as a "starting candidate only").
+   * Kept the underlying technique (an ::after overlay, so it composes
+   * with any background color without pre-computing a hover shade for
+   * each one); tuned the tint itself to ink at low alpha instead of a
+   * neutral black/white wash, and lowered the opacity so it reads as
+   * precise rather than glossy.
+   */
+  .interactive {
+    position: relative;
+  }
+
+  .interactive::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background-color: transparent;
+    transition: background-color 100ms ease-out;
+  }
+
+  .interactive:hover::after {
+    background-color: rgb(11 23 55 / 4%);
+  }
+
+  .interactive:active::after {
+    background-color: rgb(11 23 55 / 8%);
+  }
+
+  .interactive:disabled::after,
+  .interactive[data-disabled]::after {
+    background-color: transparent;
+  }
+}

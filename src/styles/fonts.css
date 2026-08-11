@@ -1,0 +1,21 @@
+/* Self-hosted via Fontsource — no external network request at runtime,
+   unlike the old app's globals.css, which named "Proxima Nova" in its font
+   stack but never actually loaded it (see docs/UI_INVENTORY.md). Every name
+   below is backed by a real @font-face. */
+
+/* Display — Libre Caslon Display. One weight only (400); used sparingly for
+   titles, never for body copy. See docs/DESIGN_SYSTEM.md for the reasoning. */
+@import "@fontsource/libre-caslon-display/400.css";
+
+/* Body — Public Sans. Designed for the U.S. Web Design System (USWDS) for
+   government digital services — built for exactly this kind of dense,
+   legibility-first institutional UI. Variable weight axis, one import
+   covers the full range. */
+@import "@fontsource-variable/public-sans";
+
+/* Data / utility — IBM Plex Mono. Used for anything that is a precise,
+   citable value: financial figures, CIN numbers, page references, dates in
+   citations. Regular for values, medium for emphasis (e.g. a value in a
+   diff trail). */
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";

@@ -1,0 +1,212 @@
+/*
+ * Design tokens — see docs/DESIGN_SYSTEM.md for the full rationale behind
+ * every choice here. Summary: a "filing/ledger" register, not a consumer
+ * SaaS one. Cool paper background (not warm cream), ink-navy text carried
+ * over from the logo wordmark, a seal-red accent standing in for an
+ * official stamp, restrained radii, shadows reserved for true overlays.
+ *
+ * These are the raw values. The @theme block below is what actually wires
+ * them into Tailwind utilities (bg-paper, text-ink, etc.) — edit values
+ * here, never in the @theme block.
+ */
+
+:root {
+  /* ---- Surfaces ---- */
+  --paper: #f1f3f1;           /* page background — cool, not warm cream */
+  --paper-raised: #ffffff;    /* cards, popovers — sits "above" the page */
+  --paper-recessed: #e7e9e6;  /* subtle panels, table stripes, secondary surfaces */
+
+  /* ---- Text ---- */
+  --ink: #0b1737;             /* primary text — the logo wordmark color, unchanged */
+  --ink-muted: #5c6572;       /* captions, metadata, secondary text */
+
+  /* ---- Structure ---- */
+  --hairline: #d3d6d0;        /* default borders/dividers */
+  --hairline-strong: #b6bbb2; /* input borders — needs to read as an edit target */
+
+  /* ---- Semantic: confirmed / verified / pass ----
+     Desaturated, darkened descendant of the logo gradient's teal end
+     (#17c0a9) — ties back to the brand without reading as a bright SaaS
+     accent. */
+  --confirmed: #2b6e5f;
+  --confirmed-tint: #e3eeea; /* wash for badge/callout backgrounds */
+
+  /* ---- Semantic: caution / pending / unconfirmed ----
+     Brass/ochre — evokes an official seal or emblem, not a generic
+     amber warning light. */
+  --caution: #93701f;
+  --caution-tint: #f3ecd8;
+
+  /* ---- Semantic + signature accent: flagged / conflict / destructive ----
+     A seal-red / oxblood. This is the one real aesthetic risk (see
+     docs/DESIGN_SYSTEM.md "Signature element") — it does double duty as
+     the brand's single accent color AND the semantic marker for anything
+     that needs a human's judgment (a conflict, a blocked gate, a
+     destructive action). In an audit tool those are related concepts:
+     something that needs a human's stamp of judgment. */
+  --signature: #7e2430;
+  --signature-tint: #f3e1e1;
+
+  /* ---- Focus ring ----
+     Deliberately distinct from both ink (text) and signature (flag/error)
+     so focus state never gets confused with either. Descends from the
+     logo gradient's dark-navy end (#0c3d72). */
+  --focus: #1b3a66;
+
+  /* ---- Radii — restrained on purpose ----
+     An audit/filing tool should read as precise, not bubbly. Base radius
+     is tighter than a typical consumer app; the old app's 0.75rem base is
+     demoted here to the rare "2xl" tier for the few surfaces (modals)
+     that actually want a softer, larger radius. */
+  --radius-sm: 0.1875rem;  /* 3px  — inline controls (small badges, chips) */
+  --radius-md: 0.25rem;    /* 4px  — inputs, buttons */
+  --radius-lg: 0.375rem;   /* 6px  — cards, panels */
+  --radius-xl: 0.5rem;     /* 8px  — larger containers */
+  --radius-2xl: 0.75rem;   /* 12px — rare: modals/sheets only */
+
+  /* ---- Shadows — reserved for true overlays ----
+     Resting content (cards, panels) uses a hairline border, not a shadow —
+     shadows are for things that visually float above the page (dialogs,
+     dropdowns, popovers). Tinted with ink rather than pure black so they
+     read as part of the same palette instead of a generic default. */
+  --shadow-xs: 0 1px 2px 0 rgba(11, 23, 55, 0.04);
+  --shadow-sm: 0 1px 3px 0 rgba(11, 23, 55, 0.06), 0 1px 2px -1px rgba(11, 23, 55, 0.06);
+  --shadow-md: 0 4px 8px -2px rgba(11, 23, 55, 0.08), 0 2px 4px -2px rgba(11, 23, 55, 0.05);
+  --shadow-lg: 0 12px 20px -6px rgba(11, 23, 55, 0.1), 0 4px 8px -4px rgba(11, 23, 55, 0.06);
+
+  /* ---- Fonts ---- */
+  --font-display: 'Libre Caslon Display', Georgia, serif;
+  --font-body: 'Public Sans Variable', 'Public Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-data: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* ---- shadcn-compatible slot mapping ----
+     Existing primitives (button.tsx, and anything shadcn adds later) read
+     these names, not the ones above directly — this indirection is what
+     lets a future dark theme override just this block. */
+  --background: var(--paper);
+  --foreground: var(--ink);
+
+  --card: var(--paper-raised);
+  --card-foreground: var(--ink);
+
+  --popover: var(--paper-raised);
+  --popover-foreground: var(--ink);
+
+  --primary: var(--ink);
+  --primary-foreground: var(--paper);
+
+  --secondary: var(--paper-recessed);
+  --secondary-foreground: var(--ink);
+
+  --muted: var(--paper-recessed);
+  --muted-foreground: var(--ink-muted);
+
+  --accent: #e4e7e9;
+  --accent-foreground: var(--ink);
+
+  --destructive: var(--signature);
+  --destructive-foreground: var(--paper);
+
+  --border: var(--hairline);
+  --input: var(--hairline-strong);
+  --ring: var(--focus);
+
+  --chart-1: var(--confirmed);
+  --chart-2: var(--caution);
+  --chart-3: var(--signature);
+  --chart-4: var(--focus);
+  --chart-5: var(--ink-muted);
+
+  --sidebar: var(--ink);
+  --sidebar-foreground: var(--paper);
+  --sidebar-border: #1b2a4a;
+  --sidebar-primary: #3e9484;
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent: #16233f;
+  --sidebar-accent-foreground: var(--paper);
+  --sidebar-ring: #5b84b8;
+
+  --radius: var(--radius-lg);
+}
+
+/*
+ * Dark theme: deliberately not built yet. This is a document-reading tool
+ * first — "paper" is the considered default, not a placeholder waiting for
+ * a dark variant. The token architecture (every component reads the
+ * shadcn-compatible slots above, never raw hex) means dark mode can be
+ * added later as a pure token swap with no component changes — but doing
+ * that properly is its own design pass, not a corner to cut in this one.
+ * See docs/DESIGN_SYSTEM.md, "Dark mode."
+ */
+.dark {
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Semantic tokens beyond shadcn's defaults — bg-confirmed, text-caution,
+     border-signature, etc. are all real Tailwind utilities now. */
+  --color-confirmed: var(--confirmed);
+  --color-confirmed-tint: var(--confirmed-tint);
+  --color-caution: var(--caution);
+  --color-caution-tint: var(--caution-tint);
+  --color-signature: var(--signature);
+  --color-signature-tint: var(--signature-tint);
+
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-paper-recessed: var(--paper-recessed);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-data);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+}
