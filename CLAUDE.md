@@ -18,6 +18,23 @@ Backend/DB: Supabase (Postgres + Auth + Storage)
 - Mock/fixture data is allowed anywhere data is needed during dev, but must always come with an explicit cleanup/teardown step — no test data left floating in Supabase after a task is verified.
 - At the start of every session: read `docs/STATE.md`, `PROGRESS.md`, and `DECISIONS.md` before doing anything else.
 
+## Code organization
+
+Enforced, checked in review — established by the Phase 3 UI-revamp screens (`docs/UI_ARCHITECTURE.md`), not aspirational:
+
+- `src/components/ui/` — primitives only (`button.tsx`, `callout.tsx`, `skeleton.tsx`, `verification-stamp.tsx`, `progress.tsx`). No domain knowledge (no `IssuerFacts`, no `ProjectRow`) — a primitive that needs to know about facts/documents/conflicts belongs one level down.
+- `src/components/<domain>/` — domain-specific but screen-agnostic pieces (e.g. `components/review/ConflictQueue.tsx`, `components/documents/DocumentListItem.tsx`). Reusable across more than one place in principle, even if only one screen uses a given one today.
+- `src/features/<screen>/` — one `<Screen>.tsx` per route, composition only: hooks in, JSX out, no more than a thin coordinating layer over `components/`/`lib/`.
+- `src/hooks/` — React Query hooks and other stateful React logic that isn't screen-specific.
+- `src/lib/` — pure logic, no React. Anything that walks/filters/transforms domain data (e.g. `lib/facts/factList.ts`'s `listFactFields`/`countFactsByStatus`) lives here, not inline in a component, and gets its own Vitest coverage.
+- `src/styles/` — tokens, fonts, global layer/utility CSS. No component ships its own one-off CSS file.
+
+Concrete rules:
+- **No component over ~200 lines.** A screen file that would exceed it is a signal to extract a subcomponent (`components/<domain>/`) or pull logic out to `lib/`, not to keep scrolling.
+- **No business logic in components.** If a piece of logic doesn't reference `props`/`state`/a hook, it can be a pure function in `lib/` — and should be, so it's independently testable and reusable instead of re-derived per component that needs it.
+- **Shared helpers are imported, never re-declared.** Before writing a traversal, formatter, or lookup, check whether `lib/` already has it. Re-declaring one that already exists is exactly the failure mode `docs/DECISIONS.md`'s `isTable()` regression describes — two copies that quietly drift.
+- **Every screen defines loading, empty, and error states explicitly** (`docs/DESIGN_SYSTEM.md`'s "State patterns") — no bare spinners, no silent no-ops, no dead ends. A screen without all three isn't done.
+
 ## Data model
 - The shared data model lives in `src/types/facts/` (`Field<T>` envelope in `envelope.ts`, six domain files, composite `IssuerFacts` in `index.ts`), defined once in Task 2.
 - Extend its implementation across phases — never casually change its shape.
