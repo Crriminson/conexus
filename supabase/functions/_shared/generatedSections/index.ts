@@ -8,3 +8,4 @@ export type {
 export { collectConfirmedFacts } from './collectConfirmedFacts.ts'
 export { buildGenerationPrompt } from './buildGenerationPrompt.ts'
 export { resolveGeneratedSections } from './resolveGeneratedSections.ts'
+export { buildDemoGeneratedSectionsResponse } from './buildDemoGeneratedSectionsResponse.ts'

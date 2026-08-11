@@ -6,6 +6,7 @@
 export { collectConfirmedFacts } from '../../../supabase/functions/_shared/generatedSections/collectConfirmedFacts.ts'
 export { buildGenerationPrompt } from '../../../supabase/functions/_shared/generatedSections/buildGenerationPrompt.ts'
 export { resolveGeneratedSections } from '../../../supabase/functions/_shared/generatedSections/resolveGeneratedSections.ts'
+export { buildDemoGeneratedSectionsResponse } from '../../../supabase/functions/_shared/generatedSections/buildDemoGeneratedSectionsResponse.ts'
 export type {
   ConfirmedFactEntry,
   GeneratedSectionCitation,

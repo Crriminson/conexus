@@ -3,11 +3,13 @@ import { callLLM } from '../_shared/callLLM.ts'
 import { parseModelJson } from '../_shared/parseModelJson.ts'
 import type { IssuerFacts } from '../_shared/factsTypes.ts'
 import {
+  buildDemoGeneratedSectionsResponse,
   buildGenerationPrompt,
   collectConfirmedFacts,
   resolveGeneratedSections,
   type GeneratedSections,
 } from '../_shared/generatedSections/index.ts'
+import { isDemoMode, isMissingSchemaError } from '../_shared/demoMode/index.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,12 +33,21 @@ function jsonResponse(body: unknown, status: number) {
 // everything else on `projects` uses, but as a plain overwrite (not a
 // merge() — generated_sections is regenerated wholesale on demand, it has
 // no proposed-vs-confirmed history to reconcile).
+//
+// `projects.generated_sections` itself is one of the two pending, undeployed
+// migrations (see docs/STATE.md) — every query below can 42703 on a live
+// project that hasn't had it applied yet. With DEMO_MODE on, that specific
+// failure (isMissingSchemaError) doesn't fail the request: the caller gets
+// the generated content back with `persisted: false` instead of a 500, so
+// the demo can still show real generated prose even before the column
+// exists. Off, or for any other error, this fails loudly like before.
 async function persistGeneratedSections(
   // deno-lint-ignore no-explicit-any
   supabase: any,
   projectId: string,
   generatedSections: GeneratedSections,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+  demoMode: boolean,
+): Promise<{ ok: true; persisted: boolean } | { ok: false; error: string }> {
   for (let attempt = 0; attempt < MAX_WRITE_RETRIES; attempt++) {
     const { data: project, error: readError } = await supabase
       .from('projects')
@@ -45,6 +56,9 @@ async function persistGeneratedSections(
       .single()
 
     if (readError || !project) {
+      if (demoMode && isMissingSchemaError(readError)) {
+        return { ok: true, persisted: false }
+      }
       return { ok: false, error: `Project not found: ${readError?.message ?? projectId}` }
     }
 
@@ -58,10 +72,13 @@ async function persistGeneratedSections(
       .select('id, generated_sections')
 
     if (updateError) {
+      if (demoMode && isMissingSchemaError(updateError)) {
+        return { ok: true, persisted: false }
+      }
       return { ok: false, error: `Failed to persist generated sections: ${updateError.message}` }
     }
     if (updated && updated.length > 0) {
-      return { ok: true }
+      return { ok: true, persisted: true }
     }
     // version mismatch — someone else wrote to this project concurrently. Loop and retry.
   }
@@ -116,6 +133,14 @@ Deno.serve(async (req: Request) => {
     )
   }
 
+  const demoMode = isDemoMode(Deno.env)
+
+  // Real Gemini is always attempted first — DEMO_MODE never skips it, it
+  // only survives its failure. On the free tier this is genuinely 429
+  // (GenerateRequestsPerDayPerProjectPerModel, see docs/STATE.md), but the
+  // fallback isn't specific to that error: anything that stops the real
+  // call from returning falls back the same way when DEMO_MODE is on, and
+  // fails the request exactly as before when it's off.
   let rawText: string
   try {
     rawText = await callLLM({
@@ -123,8 +148,11 @@ Deno.serve(async (req: Request) => {
       responseMimeType: 'application/json',
     })
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    return jsonResponse({ error: `Generation failed: ${message}` }, 502)
+    if (!demoMode) {
+      const message = err instanceof Error ? err.message : String(err)
+      return jsonResponse({ error: `Generation failed: ${message}` }, 502)
+    }
+    rawText = buildDemoGeneratedSectionsResponse(entries)
   }
 
   const parsed = parseModelJson(rawText)
@@ -140,10 +168,10 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Model did not return any usable narrative sections.' }, 502)
   }
 
-  const persisted = await persistGeneratedSections(supabase, projectId, generatedSections)
+  const persisted = await persistGeneratedSections(supabase, projectId, generatedSections, demoMode)
   if (!persisted.ok) {
     return jsonResponse({ error: persisted.error }, 500)
   }
 
-  return jsonResponse({ projectId, generatedSections }, 200)
+  return jsonResponse({ projectId, generatedSections, persisted: persisted.persisted }, 200)
 })

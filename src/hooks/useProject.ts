@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase'
 import type { IssuerFacts } from '@/types/facts'
 import type { FactConflict, MergeEvent } from '@/lib/merge/types'
 import type { GeneratedSections } from '@/lib/generatedSections'
+import { isDemoMode, isMissingSchemaError } from '@/lib/demoMode'
+import { fixtureGeneratedSections } from '@/lib/templates/fixtures'
 import { documentsQueryKey, type DocumentRow } from './useDocuments'
 
 export interface ProjectRow {
@@ -13,6 +15,45 @@ export interface ProjectRow {
   merge_events: MergeEvent[]
   generated_sections: GeneratedSections
   version: number
+  /**
+   * True when `generated_sections` came from DEMO_MODE's fixture fallback
+   * rather than a real read — the live `generated_sections` column doesn't
+   * exist until its migration is applied (still pending as of this writing,
+   * see docs/STATE.md), so a plain select 42703s. DEMO_MODE re-reads
+   * without that column and splices in fixture content instead of
+   * surfacing the error; this flag lets the UI say so instead of silently
+   * passing fixture prose off as real. Always false with DEMO_MODE off, and
+   * — the "real path takes over automatically" part — always false again
+   * the moment the migration lands, with no code change needed here.
+   */
+  generatedSectionsIsDemo: boolean
+}
+
+const LIVE_COLUMNS = 'id, name, facts, conflicts, merge_events, generated_sections, version'
+const PRE_MIGRATION_COLUMNS = 'id, name, facts, conflicts, merge_events, version'
+
+async function fetchProjectRow(projectId: string): Promise<ProjectRow> {
+  const { data, error } = await supabase.from('projects').select(LIVE_COLUMNS).eq('id', projectId).single()
+
+  if (error) {
+    if (isDemoMode() && isMissingSchemaError(error)) {
+      const { data: fallback, error: fallbackError } = await supabase
+        .from('projects')
+        .select(PRE_MIGRATION_COLUMNS)
+        .eq('id', projectId)
+        .single()
+
+      if (fallbackError) throw fallbackError
+      return {
+        ...(fallback as Omit<ProjectRow, 'generated_sections' | 'generatedSectionsIsDemo'>),
+        generated_sections: fixtureGeneratedSections(),
+        generatedSectionsIsDemo: true,
+      }
+    }
+    throw error
+  }
+
+  return { ...(data as Omit<ProjectRow, 'generatedSectionsIsDemo'>), generatedSectionsIsDemo: false }
 }
 
 export function projectQueryKey(projectId: string) {
@@ -24,16 +65,7 @@ export function useProject(projectId: string) {
 
   return useQuery({
     queryKey: projectQueryKey(projectId),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('id, name, facts, conflicts, merge_events, generated_sections, version')
-        .eq('id', projectId)
-        .single()
-
-      if (error) throw error
-      return data as ProjectRow
-    },
+    queryFn: () => fetchProjectRow(projectId),
     enabled: Boolean(projectId),
     // Extraction now persists facts from a background task, not the request
     // that kicked it off — poll while a document is processing so merged

@@ -14,6 +14,9 @@ const FactsReviewScreen = lazy(() =>
   import('@/features/review/FactsReviewScreen').then((m) => ({ default: m.FactsReviewScreen })),
 )
 const DraftScreen = lazy(() => import('@/features/draft/DraftScreen').then((m) => ({ default: m.DraftScreen })))
+const AuditLogScreen = lazy(() =>
+  import('@/features/audit/AuditLogScreen').then((m) => ({ default: m.AuditLogScreen })),
+)
 
 function RouteSkeleton() {
   return (
@@ -40,6 +43,11 @@ function ProjectRoutes({ projectId }: { projectId: string }) {
         <Route path="/project/draft">
           <Suspense fallback={<RouteSkeleton />}>
             <DraftScreen projectId={projectId} />
+          </Suspense>
+        </Route>
+        <Route path="/project/audit">
+          <Suspense fallback={<RouteSkeleton />}>
+            <AuditLogScreen projectId={projectId} />
           </Suspense>
         </Route>
       </Switch>

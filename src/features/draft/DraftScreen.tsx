@@ -95,6 +95,14 @@ export function DraftScreen({ projectId }: { projectId: string }) {
         </Badge>
       </div>
 
+      {project.generatedSectionsIsDemo && (
+        <Callout tone="neutral" title="Demo data">
+          The narrative sections below are fixture content, not real output — the live{' '}
+          <span className="font-data">generated_sections</span> column hasn't been deployed yet. Real generated
+          sections will appear automatically once it lands, with no further changes needed here.
+        </Callout>
+      )}
+
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <EligibilityCard facts={project.facts} />

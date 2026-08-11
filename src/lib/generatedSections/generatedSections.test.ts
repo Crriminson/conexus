@@ -3,7 +3,7 @@ import type { Field } from '@/types/facts'
 import { emptyIssuerFacts } from '@/types/facts/empty'
 import { createMockProvider } from '@/lib/llm'
 import { parseModelJson } from '@/lib/parseModelJson'
-import { buildGenerationPrompt, collectConfirmedFacts, resolveGeneratedSections } from './index'
+import { buildDemoGeneratedSectionsResponse, buildGenerationPrompt, collectConfirmedFacts, resolveGeneratedSections } from './index'
 
 function confirmedField<T>(value: T, sourceDocId: string | null = 'doc-1', page = 1): Field<T> {
   return { value, confidence: null, sourceDocId, sourcePage: page, status: 'confirmed', updatedAt: '2026-01-01T00:00:00.000Z' }
@@ -205,5 +205,38 @@ describe('generate-section flow, via the mock provider', () => {
     expect(resolveGeneratedSections(parsed, [], '2026-08-10T00:00:00.000Z')).toEqual({
       riskFactors: { body: 'Text.', citations: [], generatedAt: '2026-08-10T00:00:00.000Z' },
     })
+  })
+})
+
+// DEMO_MODE's fallback when the real Gemini call fails (quota exhaustion or
+// otherwise) — generate-section/index.ts falls back to this deterministic
+// text instead of the model's, but feeds it through the exact same
+// parse/resolve pipeline a real response would go through.
+describe('buildDemoGeneratedSectionsResponse', () => {
+  const entries = [
+    { fieldPath: 'company.legalName', label: 'Legal name', value: 'Sundfin Industries Limited', sourceDocId: 'doc-1', sourcePage: 4 },
+    { fieldPath: 'financials.netWorth', label: 'Net worth', value: 254000000, sourceDocId: 'doc-1', sourcePage: 114 },
+  ]
+
+  it('produces valid JSON that resolves to all 3 sections, each citing every offered entry', () => {
+    const rawText = buildDemoGeneratedSectionsResponse(entries)
+    const parsed = parseModelJson(rawText)
+    const result = resolveGeneratedSections(parsed, entries, '2026-08-11T00:00:00.000Z')
+
+    expect(Object.keys(result)).toEqual(['riskFactors', 'mdAndA', 'businessOverview'])
+    for (const key of ['riskFactors', 'mdAndA', 'businessOverview'] as const) {
+      expect(result[key]?.body).toContain('[Demo mode]')
+      expect(result[key]?.citations.map((c) => c.fieldPath)).toEqual(entries.map((e) => e.fieldPath))
+    }
+  })
+
+  it('produces an empty citedFieldPaths list, and still non-empty bodies, when given zero entries', () => {
+    const rawText = buildDemoGeneratedSectionsResponse([])
+    const parsed = parseModelJson(rawText)
+    const result = resolveGeneratedSections(parsed, [], '2026-08-11T00:00:00.000Z')
+
+    expect(Object.keys(result)).toEqual(['riskFactors', 'mdAndA', 'businessOverview'])
+    expect(result.riskFactors?.citations).toEqual([])
+    expect(result.riskFactors?.body.length).toBeGreaterThan(0)
   })
 })
