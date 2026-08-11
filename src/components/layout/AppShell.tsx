@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link, useLocation } from 'wouter'
 import { cn } from '@/lib/utils'
 import { Logo } from './Logo'
+import { ProgressRail } from './ProgressRail'
 
 const TABS = [
   { path: '/project/documents', label: 'Documents' },
@@ -12,7 +13,7 @@ const TABS = [
 // Eligibility gets a badge slot here once the Document screen builds it
 // (docs/UI_ARCHITECTURE.md: "a live at-a-glance signal... shell-level
 // chrome, not one-tab content") — not added yet, that's a later commit.
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ projectId, children }: { projectId: string; children: ReactNode }) {
   const [location] = useLocation()
 
   return (
@@ -39,6 +40,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
         </div>
       </header>
+
+      <ProgressRail projectId={projectId} />
 
       <main className="mx-auto max-w-4xl px-6 py-8">{children}</main>
     </div>

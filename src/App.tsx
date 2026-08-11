@@ -29,7 +29,7 @@ function RouteSkeleton() {
 
 function ProjectRoutes({ projectId }: { projectId: string }) {
   return (
-    <AppShell>
+    <AppShell projectId={projectId}>
       <Switch>
         <Route path="/project/documents">
           <DocumentsScreen projectId={projectId} />
