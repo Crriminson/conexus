@@ -89,7 +89,7 @@ function exportTitle(facts: IssuerFacts): string {
     : 'Draft Red Herring Prospectus'
 }
 
-// Renders the same sections Task 13's DocumentView shows, as Markdown.
+// Renders the same sections Task 13's DocumentScreen shows, as Markdown.
 // Pure and gate-agnostic — callers that need to enforce all-facts-confirmed
 // before exporting should check `checkExportGate()` first (see ./gate).
 export function buildExportMarkdown(

@@ -18,7 +18,7 @@ export function cellFromField(label: string, field: Field<unknown>): SectionCell
 
 // Every row in a computed section has the same shape (one cell per column),
 // so a multi-cell row means the section renders as a table rather than a
-// key-value list. Shared between Task 13's DocumentView and Task 14's export
+// key-value list. Shared between Task 13's DocumentScreen and Task 14's export
 // so both renderers agree on which sections are tables.
 export function isTable(section: Section): boolean {
   return (section.rows ?? []).some((row) => row.length > 1)

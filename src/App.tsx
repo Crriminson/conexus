@@ -13,12 +13,9 @@ import { Callout } from '@/components/ui/callout'
 const FactsReviewScreen = lazy(() =>
   import('@/features/review/FactsReviewScreen').then((m) => ({ default: m.FactsReviewScreen })),
 )
-// Document view (eligibility, narrative sections, citations, export) still
-// renders its pre-Phase-3 implementation — docs/UI_ARCHITECTURE.md's build
-// order is Documents -> Facts Review -> Document, one screen restyled per
-// commit. Routed and split here now so the shell/nav/perf treatment is
-// consistent across all three from this commit on.
-const DocumentView = lazy(() => import('@/features/document/DocumentView').then((m) => ({ default: m.DocumentView })))
+const DocumentScreen = lazy(() =>
+  import('@/features/document/DocumentScreen').then((m) => ({ default: m.DocumentScreen })),
+)
 
 function RouteSkeleton() {
   return (
@@ -44,7 +41,7 @@ function ProjectRoutes({ projectId }: { projectId: string }) {
         </Route>
         <Route path="/project/document">
           <Suspense fallback={<RouteSkeleton />}>
-            <DocumentView projectId={projectId} />
+            <DocumentScreen projectId={projectId} />
           </Suspense>
         </Route>
       </Switch>
