@@ -321,3 +321,11 @@ Continuing the Step 5 pass, pulled the live project's current `facts`/`conflicts
 **Not touched by this pass, deliberately:** resolving the 3 conflicts needs a human's actual judgment on which extraction was more accurate — not scripted. Full detail, including the exact conflict payloads, in `docs/STATE.md`'s "Found during Step 5" section (near the top) and updated "Open items"/"Demo plan" sections.
 
 **Files:** `docs/STATE.md` only (no code — this is a documentation catch-up of pre-existing live state, not a change to the app).
+
+## Full-app-completion phase, Step 5 (continued) — confirmed Facts Review is blocked too; the 3 ANP conflicts stay unresolved
+
+Still blocked on deploy access. Checked whether Facts Review (not just the Document tab) could resolve the 3 pending ANP conflicts logged above, since if it loaded fine that would clean up the dataset before the Task 12 live check. It does not load fine.
+
+Re-verified live (`curl ".../rest/v1/projects?id=eq.a15f3021-...&select=facts,generated_sections"`) — still `{"code":"42703",...}` at HTTP 400. Traced the code path to confirm this isn't Document-tab-specific: `FactsReview.tsx` calls `useProject()` exactly like `DocumentView.tsx`, and `useProject`'s query unconditionally selects `generated_sections` with no fallback — the whole row fetch throws, so Facts Review has nothing to render. No code fix possible or attempted; this was a verification pass, not a bugfix. The 3 conflicts remain `resolution: 'pending'` and stay that way until the migration lands.
+
+**Files:** `docs/STATE.md` (documents the re-confirmed finding; no code changes).
