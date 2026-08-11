@@ -19,7 +19,7 @@ export function Logo({ className }: { className?: string }) {
   return (
     <div className={`flex items-center gap-2 ${className ?? ''}`}>
       <img src="/conexus-mark.png" alt="" className="h-8 w-auto" />
-      <span className="font-sans text-xl font-black tracking-tighter text-ink">
+      <span className="font-sans text-xl font-black tracking-normal text-ink">
         CONE
         <span className="bg-gradient-to-br from-[#17c0a9] to-[#0c3d72] bg-clip-text text-transparent">X</span>
         US
