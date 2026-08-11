@@ -2,6 +2,16 @@
 
 A cold session (fresh clone, no prior context) should read this before anything else. `docs/PROGRESS.md` has the full task-by-task history if you need the detail behind any of this; `docs/DECISIONS.md` has the reasoning behind non-obvious calls; `docs/SETUP.md` has everything needed to actually run this.
 
+## UI revamp track (2026-08-11) — Phase 3, screen 2/3 done, screen 3/3 next
+
+Layered on top of (and now merged into) the backend-completion work below. `docs/UI_INVENTORY.md` (Phase 0) → `docs/DESIGN_SYSTEM.md` (Phase 1, now also carrying enforced "Premium execution" and "Performance" rule sets) → `docs/UI_ARCHITECTURE.md` (Phase 2) → Phase 3 builds one screen per commit, merged into `updates/v1.1` as each lands rather than batched at the end: **Documents (1/3) merged, Facts Review (2/3) built and merged, Document (3/3) is next.**
+
+Facts Review (`src/features/review/FactsReviewScreen.tsx`) reads one shared, memoized field list (`src/lib/facts/factList.ts`) for the status summary, filter bar, bulk-confirm, and all 6 domain sections — no per-piece re-walk of `IssuerFacts`. `ConflictQueue` (`src/components/review/`) renders the 3 real live ANP conflicts as first-class top-of-screen cards; `FieldRow` no longer inlines conflict resolution, just a "resolve above" link. Verified against the real live project's data (route-intercepted in a headless browser, not seeded — this sandbox's Chromium can't reach Supabase directly) since the synthetic Task 12 seed would have needed running `scripts/seed-task12-check.sh` against a project that currently holds real confirmed ANP facts + pending conflicts, which is exactly the data not to disturb (see "Found during Step 5" below). `npm run build`/`test` (123/123)/`lint` all clean.
+
+Also fixed this pass: the logo now renders "CONEXUS" as live text (Public Sans) next to the bull-on-bars SVG mark instead of baking the wordmark into the image (was set in Inter, a face this app never loads — an `<img>` can't inherit the page's real fonts). Performance: all three webfonts now import Fontsource's latin-only subset (27 files/~313KB → 7 files/~127KB), the two above-the-fold faces are preloaded, and `Document`/`FactsReviewScreen` are route-split via `React.lazy` (`src/App.tsx`) — main bundle 944KB → 913KB, with ~39KB more deferred into those two lazy chunks.
+
+**Known pre-existing issue, unrelated to this pass, confirmed still live:** `useProject`'s `.select(...generated_sections...)` still 42703s against the live project (`{"code":"42703","message":"column projects.generated_sections does not exist"}`) — the Task 12 migration is still not applied. Both Facts Review and Document are still broken against *actual* live Supabase until that migration lands (see "Blocked on deployment access" below) — this pass's live-data verification used response interception precisely because of this, not in spite of it.
+
 ## Current phase (2026-08-09): full app completion, not just demo readiness
 
 Branch of record is now `updates/v1.1` (the branch this history lives on — a separate session branch had been cut from `main`, which lacked all of Tasks 9–14; that's fixed, `updates/v1.1` is source of truth going forward, no new branches off `main`).

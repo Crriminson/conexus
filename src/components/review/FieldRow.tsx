@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { Field } from '@/types/facts'
 import type { FactConflict, MergeEvent } from '@/lib/merge/types'
 import type { DocumentRow } from '@/hooks/useDocuments'
-import { ConflictCard } from './ConflictCard'
+import { VerificationStamp } from '@/components/ui/verification-stamp'
+import { Button } from '@/components/ui/button'
 import { DiffTrail } from './DiffTrail'
 
 // Section 4: "Confidence below 0.5 still writes the field but flags it amber
@@ -10,16 +11,8 @@ import { DiffTrail } from './DiffTrail'
 // means anything — merge() deliberately doesn't branch on it.
 const LOW_CONFIDENCE = 0.5
 
-const STATUS_STYLES: Record<string, string> = {
-  empty: 'bg-muted text-muted-foreground',
-  ai: 'bg-blue-100 text-blue-800',
-  confirmed: 'bg-green-100 text-green-800',
-  edited: 'bg-amber-100 text-amber-800',
-}
-
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) return '—'
-  if (typeof value === 'number') return String(value)
   return String(value)
 }
 
@@ -33,10 +26,16 @@ export interface FieldRowProps {
   isBusy: boolean
   onConfirm: (path: string) => void
   onEdit: (path: string, value: unknown) => void
-  onResolve: (conflictId: string, resolution: 'kept_current' | 'accepted_proposed') => void
   onOpenSource: (storagePath: string, page: number | null) => void
 }
 
+/**
+ * One field: label, value (click to edit inline), status stamp, confidence,
+ * source link, and — if it has a pending conflict — a link up to
+ * `ConflictQueue` rather than the conflict resolution UI itself. Conflicts
+ * get first-class real estate at the top of the screen now
+ * (docs/UI_ARCHITECTURE.md); this row only ever points at them.
+ */
 export function FieldRow({
   path,
   label,
@@ -47,7 +46,6 @@ export function FieldRow({
   isBusy,
   onConfirm,
   onEdit,
-  onResolve,
   onOpenSource,
 }: FieldRowProps) {
   const [isEditing, setIsEditing] = useState(false)
@@ -59,8 +57,7 @@ export function FieldRow({
   }, [isEditing])
 
   const pendingConflicts = conflicts.filter((c) => c.resolution === 'pending')
-  const isLowConfidence =
-    field.confidence !== null && field.confidence < LOW_CONFIDENCE && field.value !== null
+  const isLowConfidence = field.confidence !== null && field.confidence < LOW_CONFIDENCE && field.value !== null
   const sourceDoc = documents.find((d) => d.id === field.sourceDocId)
 
   function startEdit() {
@@ -86,10 +83,14 @@ export function FieldRow({
     onEdit(path, next)
   }
 
+  function jumpToConflictQueue() {
+    document.getElementById('conflict-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
-    <div className="flex flex-col gap-1.5 border-b py-2 last:border-b-0">
+    <div className="flex flex-col gap-1 border-b border-hairline py-2 last:border-b-0">
       <div className="flex items-start justify-between gap-3">
-        <span className="w-48 shrink-0 pt-0.5 text-xs text-muted-foreground">{label}</span>
+        <span className="w-44 shrink-0 pt-1.5 text-xs text-ink-muted">{label}</span>
 
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           {isEditing ? (
@@ -102,28 +103,31 @@ export function FieldRow({
                 if (event.key === 'Enter') commitEdit()
                 if (event.key === 'Escape') setIsEditing(false)
               }}
-              className="w-full rounded-md border px-2 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="w-full rounded-md border border-hairline-strong bg-paper-raised px-2 py-1 text-sm text-ink outline-none focus-visible:border-focus focus-visible:ring-3 focus-visible:ring-focus/20"
             />
           ) : (
             <button
               type="button"
               onClick={startEdit}
               title="Click to edit"
-              className={`w-full rounded-md px-2 py-1 text-left text-sm hover:bg-muted ${
-                isLowConfidence ? 'bg-amber-100 text-amber-800' : ''
-              } ${field.value === null ? 'text-muted-foreground' : ''}`}
+              className={`interactive w-full rounded-md px-2 py-1 text-left text-sm break-words ${
+                isLowConfidence ? 'bg-caution-tint text-ink' : ''
+              } ${field.value === null ? 'text-ink-muted' : 'text-ink'}`}
             >
               {formatValue(field.value)}
             </button>
           )}
 
-          <div className="flex flex-wrap items-center gap-2 px-2 text-xs text-muted-foreground">
-            <span className={`rounded-full px-2 py-0.5 font-medium ${STATUS_STYLES[field.status]}`}>
-              {field.status}
-            </span>
+          <div className="flex flex-wrap items-center gap-2 px-2 text-xs text-ink-muted">
+            {field.status !== 'empty' && (
+              <VerificationStamp
+                status={field.status === 'confirmed' || field.status === 'edited' ? 'confirmed' : 'pending'}
+                label={field.status === 'edited' ? 'Edited' : undefined}
+              />
+            )}
 
             {field.confidence !== null && (
-              <span className={isLowConfidence ? 'font-medium text-amber-800' : ''}>
+              <span className={`font-data tabular-nums ${isLowConfidence ? 'font-medium text-caution' : ''}`}>
                 {Math.round(field.confidence * 100)}% confident
               </span>
             )}
@@ -132,7 +136,7 @@ export function FieldRow({
               <button
                 type="button"
                 onClick={() => onOpenSource(sourceDoc.storage_path, field.sourcePage)}
-                className="text-primary underline-offset-2 hover:underline"
+                className="interactive rounded-sm text-ink-muted underline-offset-2 hover:text-ink hover:underline"
               >
                 {sourceDoc.filename}
                 {field.sourcePage ? ` p.${field.sourcePage}` : ''}
@@ -140,9 +144,13 @@ export function FieldRow({
             )}
 
             {pendingConflicts.length > 0 && (
-              <span className="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-800">
-                {pendingConflicts.length} conflict{pendingConflicts.length > 1 ? 's' : ''}
-              </span>
+              <button
+                type="button"
+                onClick={jumpToConflictQueue}
+                className="interactive rounded-sm font-medium text-signature underline-offset-2 hover:underline"
+              >
+                {pendingConflicts.length} conflict{pendingConflicts.length > 1 ? 's' : ''} — resolve above
+              </button>
             )}
           </div>
 
@@ -150,28 +158,11 @@ export function FieldRow({
         </div>
 
         {field.status !== 'confirmed' && field.value !== null && (
-          <button
-            type="button"
-            disabled={isBusy}
-            onClick={() => onConfirm(path)}
-            className="shrink-0 rounded-md border px-2 py-1 text-xs font-medium hover:bg-muted disabled:opacity-50"
-          >
+          <Button type="button" variant="outline" size="sm" disabled={isBusy} onClick={() => onConfirm(path)} className="mt-1 shrink-0">
             Confirm
-          </button>
+          </Button>
         )}
       </div>
-
-      {pendingConflicts.map((conflict) => (
-        <ConflictCard
-          key={conflict.id}
-          conflict={conflict}
-          field={field}
-          documents={documents}
-          isBusy={isBusy}
-          onResolve={onResolve}
-          onOpenSource={onOpenSource}
-        />
-      ))}
     </div>
   )
 }
