@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link, useLocation } from 'wouter'
 import { cn } from '@/lib/utils'
+import { Logo } from './Logo'
 
 const TABS = [
   { path: '/project/documents', label: 'Documents' },
@@ -18,7 +19,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-paper">
       <header className="border-b border-hairline bg-paper-raised">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-6 py-3">
-          <img src="/conexus-logo.svg" alt="Conexus" className="h-8 w-auto" />
+          <Logo />
 
           <nav className="flex gap-1 rounded-lg border border-hairline bg-paper p-1">
             {TABS.map((tab) => (
