@@ -9,6 +9,16 @@
 # Run this after the Task 12 live-browser check, whether it passed or
 # failed — do not leave scripts/seed-task12-check.sh's data sitting in the
 # live project.
+#
+# GUARDED (2026-08-11): PROJECT_ID below is this app's one singleton
+# project — the same row real extraction runs write into. A prior version
+# of this script reset `facts` unconditionally, which would silently
+# destroy real confirmed data (e.g. the live ANP dataset's 37 confirmed
+# facts + any pending FactConflicts) if run at the wrong time. It now
+# refuses to touch anything unless the project's current facts still look
+# exactly like scripts/seed-task12-check.sh's own seed — same legal name,
+# same seed document as the source. Anything else aborts loudly instead
+# of resetting.
 
 set -euo pipefail
 
@@ -31,14 +41,32 @@ EMPTY_FACTS='{"company":{"legalName":{"value":null,"confidence":null,"sourceDocI
 NOW="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
 EMPTY_FACTS="${EMPTY_FACTS//__NOW__/${NOW}}"
 
-echo "Reading current project version..."
-CURRENT=$(curl -sS "${VITE_SUPABASE_URL}/rest/v1/projects?id=eq.${PROJECT_ID}&select=version" "${AUTH_HEADERS[@]}")
+echo "Reading current project version and facts..."
+CURRENT=$(curl -sS "${VITE_SUPABASE_URL}/rest/v1/projects?id=eq.${PROJECT_ID}&select=version,facts" "${AUTH_HEADERS[@]}")
 VERSION=$(echo "$CURRENT" | grep -o '"version":[0-9]*' | grep -o '[0-9]*$')
 if [ -z "$VERSION" ]; then
   echo "Could not read current version. Response was: $CURRENT" >&2
   exit 1
 fi
 echo "Current version: ${VERSION}"
+
+# Hard guard: only reset facts that still look like this script's own seed
+# (scripts/seed-task12-check.sh) -- same legal name AND same seed document
+# as the source of that value. This is the one singleton project real
+# extraction runs also write into; without this check, running this script
+# at the wrong time would silently destroy real confirmed data (e.g. the
+# live ANP dataset) instead of just this seed. Both conditions must match;
+# either mismatching means this is NOT the seed, so refuse.
+if ! echo "$CURRENT" | grep -q '"value":"Meridian Textiles Limited"' \
+  || ! echo "$CURRENT" | grep -q "\"sourceDocId\":\"${SEED_DOCUMENT_ID}\""; then
+  echo "" >&2
+  echo "REFUSING TO RUN: current project facts do not look like scripts/seed-task12-check.sh's own seed" >&2
+  echo "(expected to find company.legalName = \"Meridian Textiles Limited\" sourced from document ${SEED_DOCUMENT_ID})." >&2
+  echo "This project is the app's one singleton project -- real extraction runs write into the same row." >&2
+  echo "If this is real confirmed data (e.g. the live ANP dataset), do NOT reset it. Inspect manually." >&2
+  exit 1
+fi
+echo "Facts match the expected seed shape -- safe to reset."
 
 echo "Resetting facts + generated_sections to empty (version ${VERSION} -> $((VERSION + 1)))..."
 RESET_HTTP=$(curl -sS -o /tmp/teardown-task12-reset-response.json -w "%{http_code}" \
