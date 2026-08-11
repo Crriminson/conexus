@@ -32,6 +32,27 @@ export interface ProjectRow {
 const LIVE_COLUMNS = 'id, name, facts, conflicts, merge_events, generated_sections, version'
 const PRE_MIGRATION_COLUMNS = 'id, name, facts, conflicts, merge_events, version'
 
+// useUpdateFacts/useResolveConflict's read-modify-write CAS loop never
+// actually needs generated_sections — they only ever touch facts/conflicts.
+// They select this narrower column list instead of LIVE_COLUMNS so their own
+// DB calls can never 42703 on a column their own logic doesn't use, migration
+// applied or not — this is unconditional resilience, not a DEMO_MODE
+// fallback (see docs/DECISIONS.md). `generated_sections`/
+// `generatedSectionsIsDemo` are then carried forward from whatever's already
+// in the TanStack Query cache (populated by useProject, which does fetch/
+// fall back on that column) rather than re-read, since nothing in a facts or
+// conflict write ever changes them.
+export const PROJECT_FACTS_COLUMNS = PRE_MIGRATION_COLUMNS
+export type ProjectFactsRow = Pick<ProjectRow, 'id' | 'name' | 'facts' | 'conflicts' | 'merge_events' | 'version'>
+
+export function withCachedGeneratedSections(row: ProjectFactsRow, cached: ProjectRow | undefined): ProjectRow {
+  return {
+    ...row,
+    generated_sections: cached?.generated_sections ?? {},
+    generatedSectionsIsDemo: cached?.generatedSectionsIsDemo ?? false,
+  }
+}
+
 async function fetchProjectRow(projectId: string): Promise<ProjectRow> {
   const { data, error } = await supabase.from('projects').select(LIVE_COLUMNS).eq('id', projectId).single()
 

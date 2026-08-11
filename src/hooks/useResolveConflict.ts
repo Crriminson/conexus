@@ -2,7 +2,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { getFieldAtPath, setFieldAtPath } from '@/lib/facts/fieldPath'
 import { recordFactEvents } from '@/lib/factEvents'
-import { projectQueryKey, type ProjectRow } from './useProject'
+import {
+  projectQueryKey,
+  withCachedGeneratedSections,
+  PROJECT_FACTS_COLUMNS,
+  type ProjectFactsRow,
+  type ProjectRow,
+} from './useProject'
 
 const MAX_WRITE_RETRIES = 5
 
@@ -34,16 +40,19 @@ export function useResolveConflict(projectId: string) {
       for (let attempt = 0; attempt < MAX_WRITE_RETRIES; attempt++) {
         const { data: project, error: readError } = await supabase
           .from('projects')
-          .select('id, name, facts, conflicts, merge_events, generated_sections, version')
+          .select(PROJECT_FACTS_COLUMNS)
           .eq('id', projectId)
           .single()
 
         if (readError) throw readError
-        const current = project as ProjectRow
+        const current = project as ProjectFactsRow
 
         const conflict = current.conflicts.find((c) => c.id === conflictId)
         if (!conflict) throw new Error(`No conflict with id "${conflictId}"`)
-        if (conflict.resolution !== 'pending') return current // already resolved elsewhere
+        if (conflict.resolution !== 'pending') {
+          // already resolved elsewhere
+          return withCachedGeneratedSections(current, queryClient.getQueryData<ProjectRow>(queryKey))
+        }
 
         const resolvedAt = new Date().toISOString()
         const nextConflicts = current.conflicts.map((c) =>
@@ -70,7 +79,7 @@ export function useResolveConflict(projectId: string) {
           .update({ facts: nextFacts, conflicts: nextConflicts, version: current.version + 1 })
           .eq('id', projectId)
           .eq('version', current.version)
-          .select('id, name, facts, conflicts, merge_events, generated_sections, version')
+          .select(PROJECT_FACTS_COLUMNS)
 
         if (writeError) throw writeError
         if (updated && updated.length > 0) {
@@ -84,7 +93,10 @@ export function useResolveConflict(projectId: string) {
               source: 'merge',
             },
           ])
-          return updated[0] as ProjectRow
+          return withCachedGeneratedSections(
+            updated[0] as ProjectFactsRow,
+            queryClient.getQueryData<ProjectRow>(queryKey),
+          )
         }
       }
 

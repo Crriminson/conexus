@@ -3,7 +3,13 @@ import { supabase } from '@/lib/supabase'
 import type { FieldStatus } from '@/types/facts'
 import { applyHumanEdit, getFieldAtPath, setFieldAtPath, type FactPath } from '@/lib/facts/fieldPath'
 import { recordFactEvents } from '@/lib/factEvents'
-import { projectQueryKey, type ProjectRow } from './useProject'
+import {
+  projectQueryKey,
+  withCachedGeneratedSections,
+  PROJECT_FACTS_COLUMNS,
+  type ProjectFactsRow,
+  type ProjectRow,
+} from './useProject'
 
 const MAX_WRITE_RETRIES = 5
 
@@ -47,12 +53,12 @@ export function useUpdateFacts(projectId: string) {
       for (let attempt = 0; attempt < MAX_WRITE_RETRIES; attempt++) {
         const { data: project, error: readError } = await supabase
           .from('projects')
-          .select('id, name, facts, conflicts, merge_events, generated_sections, version')
+          .select(PROJECT_FACTS_COLUMNS)
           .eq('id', projectId)
           .single()
 
         if (readError) throw readError
-        const current = project as ProjectRow
+        const current = project as ProjectFactsRow
 
         const field = getFieldAtPath(current.facts, patch.path)
         if (!field) throw new Error(`No field at path "${patch.path}"`)
@@ -65,7 +71,7 @@ export function useUpdateFacts(projectId: string) {
           .update({ facts: nextFacts, version: current.version + 1 })
           .eq('id', projectId)
           .eq('version', current.version)
-          .select('id, name, facts, conflicts, merge_events, generated_sections, version')
+          .select(PROJECT_FACTS_COLUMNS)
 
         if (writeError) throw writeError
         if (updated && updated.length > 0) {
@@ -79,7 +85,10 @@ export function useUpdateFacts(projectId: string) {
               source: 'manual',
             },
           ])
-          return updated[0] as ProjectRow
+          return withCachedGeneratedSections(
+            updated[0] as ProjectFactsRow,
+            queryClient.getQueryData<ProjectRow>(queryKey),
+          )
         }
 
         // version moved under us — a background chunk merged while we were

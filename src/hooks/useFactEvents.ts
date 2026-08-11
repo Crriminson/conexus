@@ -14,10 +14,13 @@ export function factEventsQueryKey(projectId: string) {
 
 // Same DEMO_MODE shape as useProject's generated_sections fallback: try the
 // real table first, and only reach for fixture data if that specific read
-// fails because the fact_events migration hasn't been applied yet
-// (undefined_table, 42P01) — never on any other kind of failure, and never
-// at all with DEMO_MODE off. Once the migration lands, this call simply
-// stops erroring and the real rows flow through unchanged.
+// fails because the fact_events migration hasn't been applied yet — never on
+// any other kind of failure, and never at all with DEMO_MODE off. Verified
+// live against the real project (2026-08-11): a missing table goes through
+// PostgREST's schema cache, not Postgres directly, so it reports its own
+// PGRST205 rather than the raw Postgres 42P01 undefined_table code —
+// isMissingSchemaError checks both. Once the migration lands, this call
+// simply stops erroring and the real rows flow through unchanged.
 async function fetchFactEvents(projectId: string): Promise<FactEventsResult> {
   const { data, error } = await supabase
     .from('fact_events')

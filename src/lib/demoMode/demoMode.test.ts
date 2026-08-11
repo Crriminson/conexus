@@ -22,9 +22,13 @@ describe('parseDemoMode', () => {
 })
 
 describe('isMissingSchemaError', () => {
-  it('is true for undefined_column (42703) and undefined_table (42P01)', () => {
+  it('is true for undefined_column (42703), undefined_table (42P01), and PostgREST schema-cache-miss (PGRST205)', () => {
     expect(isMissingSchemaError({ code: '42703' })).toBe(true)
     expect(isMissingSchemaError({ code: '42P01' })).toBe(true)
+    // PGRST205 is what a missing table actually reports through PostgREST
+    // (verified live, 2026-08-11) — a missing column reports raw 42703, but
+    // a missing table never reaches Postgres, so it never gets 42P01 either.
+    expect(isMissingSchemaError({ code: 'PGRST205' })).toBe(true)
   })
 
   it('is false for other error codes, or no code at all', () => {
