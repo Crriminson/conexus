@@ -2,6 +2,30 @@
 
 Written so a fresh session doesn't relitigate these. If you think one of these is wrong, that's a legitimate conversation — just have it knowing what was already considered, not from scratch.
 
+## Landing page: ported, not merged (2026-08-11)
+
+**`user_landing_page_info` is not a landing-page branch — it is the entire pre-rebuild Next.js/Prisma application** (162 `src/` files: Next 16 App Router, `src/app/(auth)/`, `(company)/projects/[id]/*`, 40+ API routes, Prisma, Inngest, Groq, pdfmake, ~70 dependencies). It is a complete parallel implementation of this product, and the same legacy app `## Fresh Supabase project…` below describes. Merging it would reintroduce a second implementation of everything `updates/v1.1` has spent this whole build rewriting.
+
+**What was actually taken: one file.** The landing page is a self-contained 207-line `src/app/page.tsx`. Its entire dependency surface was `lucide-react` (already a dep), `@/components/ui/button` (exists here, and `variant="outline"`/`size="lg"` both map cleanly), `next/link`, `next/image`, and `framer-motion`. Ported to `src/features/landing/LandingScreen.tsx` + five `src/components/landing/` band components (the original is over CLAUDE.md's ~200-line component ceiling, so it could not land as one file). **Net new dependencies: zero.**
+
+**A git merge of that branch already happened, and it discarded the landing page.** `e3b0786` (main → `updates/v1.1`) resolved all of `src/` in favour of `updates/v1.1`, so the only things it actually brought across were a dead Python `backend/` skeleton, two logo assets, and a PROGRESS.md fragment. PR #2 then merged that result back, which is why **`main` no longer contains the Next.js app** (162 `src/` files → 96). That cutover is the intended end state, but it should follow verification rather than precede it — see `docs/STATE.md`.
+
+**framer-motion was dropped, not replaced.** It powered exactly two `motion.div` mount fades. `docs/DESIGN_SYSTEM.md`'s "Premium execution" rules prohibit entrance animations outright ("Motion confirms an action happened — it never decorates arrival"), so the correct port is no animation at all. That also removes the only argument for adding a dependency to a bundle already under an active performance budget.
+
+**Restyling was a reconciliation, not a recolor.** The page carried 41 raw `slate-*` utilities beside 39 token-based ones. The token-based ones already resolved (`tokens.css` aliases the shadcn slots onto this palette), but `slate-50` sits visibly beside `--paper` and `slate-900` beside `--ink` — two greys pretending to be one system. All 41 were mapped to paper/ink/confirmed. The consumer-SaaS conventions went with them: `shadow-xl` + `hover:-translate-y-2` on resting cards became `border border-hairline` + the canonical `.interactive` hover, per the "Radius and shadow" and "Restrained motion" rules.
+
+**The footer was inverted from dark to recessed paper**, which is *why* the real `<Logo/>` can be used there — that component renders its wordmark as live ink-colored text and is invisible on a dark ground. Using one `<Logo/>` in header and footer is what makes it a single source of truth instead of a baked `conexus-logo.png` copy that drifts from the app's own mark (the exact failure the `2d07943` logo fix already corrected once).
+
+**Two dead links were removed rather than shipped.** The nav's `#benefits` anchor had no matching section, and workflow step 1 linked to `/docs/eligibility.pdf`, which does not exist in this repo — a 404 on the front door. The "Sign In" link pointed at `/login`; this app has no auth (the singleton-project model has no user concept), so it was removed rather than left as a dead end.
+
+**Feature copy was trimmed to what is actually built.** The source promised a "live preview" and "readiness scores" that do not exist here. Overclaiming to a SEBI audience is worse than claiming less, so each of the four features now names a real capability (typed fact model, cited assembly, deterministic eligibility, append-only audit trail).
+
+**`backend/` was deleted.** The FastAPI skeleton that arrived via the merge had 8 of its 11 files at 0 bytes — only a health route and a hello-world `main.py` — and was wired to nothing. A second, empty backend sitting beside `supabase/functions/` is a standing invitation to confusion.
+
+## `border-hairline` generated no CSS for the entire Phase 1–3 UI build (found and fixed 2026-08-11)
+
+`--color-hairline` was never added to `tokens.css`'s `@theme inline` block, so Tailwind v4 emitted **no rule at all** for `border-hairline` — verified by grepping the built stylesheet (`.border-hairline{` → 0 matches). Tailwind v4's default border color is `currentColor`, so all **25 usages across 13 components** — every card, panel, divider, the `AppShell` header, the nav pill, `Callout`, `SectionCard`, `ConflictCard`, `DomainSection`, `ProgressRail` — were drawing ink-dark borders where a #d3d6d0 hairline was intended. Fixed by registering `--color-hairline`/`--color-hairline-strong` in the `@theme` block; **no component changed**, and `.border-hairline{border-color:var(--hairline)}` now appears in the build output. This is a real visual regression across the whole app, not a landing-page issue — it was only caught because the landing port needed the same token and the built CSS was checked rather than assumed.
+
 ## `fact_events` audit trail: design choices (2026-08-11)
 
 **Go-ahead given for application-level logging, not DB-enforced (RLS/triggers).** Matches this schema's existing posture — `projects`/`documents`/`fact_events` itself have no RLS, only `storage.objects` does (`20260802000000_documents_bucket_policies.sql`). The one piece of "write-once" that IS enforced at the DB layer, not just left to code discipline, is `revoke update, delete on fact_events from anon, authenticated` in the migration — cheap to add, and "no code path should ever call these" is exactly the kind of invariant worth having the DB refuse rather than trusting every future call site to remember.

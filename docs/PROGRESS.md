@@ -433,3 +433,25 @@ Merged `origin/main` into `updates/v1.1` to clear the PR conflict state. Kept th
 **Files:** merge conflict set above, plus this `docs/PROGRESS.md` update.
 
 **Outstanding:** none for this comment request.
+
+## Demo build, Phase 1 — landing page ported to `/`
+
+First of a 4-phase push to a demo-ready end-to-end app. Scope was "merge the landing branch"; the investigation phase found that isn't the operation this needs.
+
+**The branch is not a landing branch.** `user_landing_page_info` is the entire pre-rebuild Next.js 16 + Prisma application — 162 `src/` files, ~70 deps, a full parallel implementation of this product. A git merge of it had *already* happened while the `fact_events` work was in flight (`e3b0786`, then PR #2 back to `main`), and it resolved all of `src/` in favour of `updates/v1.1` — so it discarded the landing page and brought across only a dead Python `backend/`, two logo assets, and a PROGRESS.md fragment. Side effect worth knowing: `main` no longer contains the Next.js app (162 `src/` files → 96).
+
+**What was done instead: ported one file.** The landing page is a self-contained 207-line `src/app/page.tsx` whose whole dependency surface was `lucide-react` (already here), `@/components/ui/button` (exists, API-compatible), `next/link`, `next/image`, and `framer-motion`. Now `src/features/landing/LandingScreen.tsx` (composition only) + `src/components/landing/{LandingHeader,LandingHero,LandingFeatures,LandingWorkflow,LandingFooter}.tsx` — split because the original exceeds CLAUDE.md's ~200-line ceiling. **Zero new dependencies.**
+
+**Reconciled onto this design system rather than recolored.** 41 raw `slate-*` utilities mapped to paper/ink/confirmed; `shadow-xl` + `hover:-translate-y-2` on resting cards replaced with `border border-hairline` + the canonical `.interactive` hover, per DESIGN_SYSTEM.md's "Radius and shadow" and "Restrained motion" rules. framer-motion's two mount-fades were **dropped, not replaced** — entrance animations are prohibited outright. Footer inverted from slate-900 to recessed paper, which is what lets the real `<Logo/>` be used in both header and footer (it draws live ink-colored text and is invisible on dark), closing the baked-PNG-wordmark issue.
+
+**Honesty fixes:** removed a dead `#benefits` nav anchor, removed workflow step 1's link to `/docs/eligibility.pdf` (doesn't exist — a 404 on the front door), removed the "Sign In" link (this app has no auth), and trimmed feature copy that promised a "live preview" and "readiness scores" this app doesn't have. Deleted the dead `backend/` FastAPI skeleton (8 of 11 files were 0 bytes, wired to nothing).
+
+**Found and fixed — app-wide, not landing-specific: `border-hairline` generated no CSS.** `--color-hairline` was never added to `tokens.css`'s `@theme inline` block, so Tailwind v4 emitted no rule and all 25 usages across 13 components fell back to `currentColor` — ink-dark borders instead of #d3d6d0 hairlines, across every card, panel, divider and the `AppShell` header, since the UI revamp's Phase 1. Caught by grepping the built stylesheet rather than trusting the class name. Two lines in the `@theme` block; no component changed.
+
+**Verification — the landing page is the one screen that reads no data**, so unlike every other screen it could be verified directly in this sandbox (headless Chromium still can't reach Supabase). Rendered against `vite preview` at 390×844, 1280×900 and 1920×1080: zero console errors, zero page errors, no horizontal overflow at any width. Clicked the primary CTA for real — navigates to `/project/documents` through the actual `useEnsureProject` create-or-fetch, not a stub. One execution defect caught in the screenshot and fixed: workflow step ordinals were rendering as "1 . Extract" because `font-data`'s tabular figures widened the numeral — and `font-data` is reserved for citable values (figures, CINs, page refs), not labels. Now a proper "STEP 1" eyebrow.
+
+`npm test` 149/149, `tsc -b`/`vite build`/`lint` all clean. Main bundle 926.40KB → 874.16KB (the shared `button` chunk split out at 52.18KB now that landing and app both use it); landing is its own 7.76KB lazy chunk, so `/project/*` never pays for it.
+
+**Files:** `src/features/landing/LandingScreen.tsx`, `src/components/landing/{LandingHeader,LandingHero,LandingFeatures,LandingWorkflow,LandingFooter}.tsx`, `src/App.tsx`, `src/styles/tokens.css`, `backend/` (deleted), `docs/STATE.md`, `docs/DECISIONS.md`.
+
+**Outstanding:** Phases 2–4. Phase 2 is demo mode (resilience + `VITE_DEMO_MODE` fixtures) plus the project-level Audit Log view over `fact_events`. Nothing pushed to `main` until Phase 3's walkthrough passes.

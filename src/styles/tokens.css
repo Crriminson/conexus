@@ -180,6 +180,15 @@
   --color-ink: var(--ink);
   --color-ink-muted: var(--ink-muted);
 
+  /* `border-hairline` was used in 13 components from Phase 1 onward but never
+     wired in here, so Tailwind generated no rule for it and every one of those
+     borders silently fell back to Tailwind v4's `currentColor` default —
+     rendering ink-dark instead of the intended #d3d6d0 hairline. Registering
+     both hairline steps makes the existing usages resolve; no component
+     changed. */
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);

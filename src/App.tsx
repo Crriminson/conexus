@@ -15,6 +15,13 @@ const FactsReviewScreen = lazy(() =>
 )
 const DraftScreen = lazy(() => import('@/features/draft/DraftScreen').then((m) => ({ default: m.DraftScreen })))
 
+// Landing is lazy for the opposite reason the app screens are: it is not on
+// the path to the workspace, so a returning user going straight to
+// /project/* should never pay for the marketing page's bytes.
+const LandingScreen = lazy(() =>
+  import('@/features/landing/LandingScreen').then((m) => ({ default: m.LandingScreen })),
+)
+
 function RouteSkeleton() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
@@ -81,8 +88,13 @@ export default function App() {
   return (
     <Router base={ROUTER_BASE}>
       <Switch>
+        {/* Public entry point. Was a redirect straight into the workspace;
+            the landing page is now the front door and the workspace lives
+            entirely under /project/*. */}
         <Route path="/">
-          <Redirect to="/project/documents" />
+          <Suspense fallback={null}>
+            <LandingScreen />
+          </Suspense>
         </Route>
         <Route path="/project">
           <Redirect to="/project/documents" />
