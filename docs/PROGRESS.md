@@ -296,3 +296,16 @@ Built the full path per the human's expanded-scope call (see `docs/STATE.md`), n
 **Files:** `supabase/functions/_shared/generatedSections/{types,collectConfirmedFacts,buildGenerationPrompt,resolveGeneratedSections,index}.ts`, `supabase/functions/_shared/parseModelJson.ts`, `supabase/functions/extract/index.ts` (now imports the shared parseModelJson), `supabase/functions/generate-section/index.ts`, `supabase/migrations/20260810000000_generated_sections.sql`, `src/lib/generatedSections/{index,generatedSections.test}.ts`, `src/lib/parseModelJson.ts`, `src/lib/templates/{generated,types,index}.ts`, `src/lib/templates/fixtures.ts` (added `fixtureGeneratedSections`), `src/lib/templates/templates.test.ts`, `src/lib/export/{gate,markdown,index}.ts`, `src/lib/export/export.test.ts`, `src/hooks/{useProject,useUpdateFacts,useResolveConflict,useGenerateSections,useRunExtraction,describeFunctionError}.ts`, `src/features/generate/GenerateSectionsButton.tsx`, `src/features/document/DocumentView.tsx`, `src/features/export/ExportButton.tsx`.
 
 **Outstanding — this is the current blocker, not a someday item:** the migration has NOT been applied and the Edge Function has NOT been deployed to the live `fvtazfdppcajoglteutz` project. This session only has the anon key — no service-role key, DB password, or Management API token, all of which running the migration/deploy requires. Someone with elevated Supabase access needs to run the two commands documented in `docs/SETUP.md` before Task 12 can be exercised against live data. Once deployed, this needs the same live-browser verification treatment Tasks 10/11/13/14 got in Step 2 — not yet done, code-complete/fixture-and-mock-tested only.
+
+## Full-app-completion phase, Step 5 (partial) — found & fixed two regressions from Step 4
+
+While doing the Step 5 freshness/cleanup pass, verified directly against the live project (anon key, no write) that Step 4's `.select(...generated_sections...)` additions to `useProject`/`useUpdateFacts`/`useResolveConflict` currently fail live:
+```
+$ curl ".../rest/v1/projects?select=id,generated_sections&limit=1" ...
+{"code":"42703","message":"column projects.generated_sections does not exist"}
+```
+Since the migration adding that column hasn't been applied yet. Both `DocumentView.tsx` and `FactsReview.tsx` call `useProject()`, so **both tabs are currently broken against live data** — not merely "Task 12 unavailable," which is how the Step 4 entry above understated it. Documents the actual blast radius in `docs/STATE.md`; no code change needed or possible here, this resolves itself the moment the pending migration is applied.
+
+Also found and fixed: `DocumentView.tsx` (rewritten in Step 4) had reintroduced a local `isTable()` instead of importing the shared one from `@/lib/templates`, undoing Task 14's dedup refactor. Restored the import. `tsc -b`/`vitest` (112/112)/`vite build` all clean after.
+
+**Files:** `src/features/document/DocumentView.tsx`, `docs/STATE.md`.

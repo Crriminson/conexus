@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useProject } from '@/hooks/useProject'
 import { useDocuments } from '@/hooks/useDocuments'
 import { useOpenSource } from '@/hooks/useOpenSource'
-import { assembleSections } from '@/lib/templates'
+import { assembleSections, isTable } from '@/lib/templates'
 import type { Section } from '@/lib/templates'
 import { EligibilityCard } from '@/features/eligibility/EligibilityCard'
 import { ExportButton } from '@/features/export/ExportButton'
@@ -16,12 +16,6 @@ const STATUS_STYLES: Record<Section['status'], string> = {
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) return '—'
   return String(value)
-}
-
-// Every row in a computed section has the same shape (one cell per column),
-// so the first row's cell labels double as the table's column headers.
-function isTable(section: Section): boolean {
-  return (section.rows ?? []).some((row) => row.length > 1)
 }
 
 export function DocumentView({ projectId }: { projectId: string }) {

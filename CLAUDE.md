@@ -19,7 +19,7 @@ Backend/DB: Supabase (Postgres + Auth + Storage)
 - At the start of every session: read `docs/STATE.md`, `PROGRESS.md`, and `DECISIONS.md` before doing anything else.
 
 ## Data model
-- The shared data model lives in `src/types/project.ts`, defined once in Phase 0.
+- The shared data model lives in `src/types/facts/` (`Field<T>` envelope in `envelope.ts`, six domain files, composite `IssuerFacts` in `index.ts`), defined once in Task 2.
 - Extend its implementation across phases — never casually change its shape.
 
 ## AI content rules
