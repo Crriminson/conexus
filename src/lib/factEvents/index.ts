@@ -7,3 +7,7 @@ export { buildFactEventRows, recordFactEvents } from '../../../supabase/function
 export type { FactEventRow, FactEventsClient } from '../../../supabase/functions/_shared/factEvents/recordFactEvents.ts'
 export { getFactValue } from '../../../supabase/functions/_shared/factEvents/getFactValue.ts'
 export type { FactEventInput, FactEventSource, FactEventType } from '../../../supabase/functions/_shared/factEvents/types.ts'
+
+export { sortFactEventsDescending } from './auditLog'
+export type { FactEventLogRow } from './auditLog'
+export { fixtureFactEvents } from './fixtures'

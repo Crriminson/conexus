@@ -8,6 +8,7 @@ const TABS = [
   { path: '/project/documents', label: 'Documents' },
   { path: '/project/review', label: 'Facts Review' },
   { path: '/project/draft', label: 'Draft' },
+  { path: '/project/audit', label: 'Audit Log' },
 ] as const
 
 // Eligibility gets a badge slot here once the Draft screen builds it
