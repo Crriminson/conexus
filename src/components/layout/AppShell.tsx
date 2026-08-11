@@ -7,10 +7,10 @@ import { ProgressRail } from './ProgressRail'
 const TABS = [
   { path: '/project/documents', label: 'Documents' },
   { path: '/project/review', label: 'Facts Review' },
-  { path: '/project/document', label: 'Document' },
+  { path: '/project/draft', label: 'Draft' },
 ] as const
 
-// Eligibility gets a badge slot here once the Document screen builds it
+// Eligibility gets a badge slot here once the Draft screen builds it
 // (docs/UI_ARCHITECTURE.md: "a live at-a-glance signal... shell-level
 // chrome, not one-tab content") — not added yet, that's a later commit.
 export function AppShell({ projectId, children }: { projectId: string; children: ReactNode }) {

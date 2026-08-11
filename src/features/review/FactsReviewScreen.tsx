@@ -103,9 +103,16 @@ export function FactsReviewScreen({ projectId }: { projectId: string }) {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-display text-2xl text-ink">Facts Review</h1>
-        <VerificationStamp status="confirmed" label={`${counts.confirmed + counts.edited} confirmed`} />
-        {pendingConflicts.length > 0 && (
-          <VerificationStamp status="conflict" label={`${pendingConflicts.length} need review`} />
+        {/* One chip, same pinned VerificationStamp vocabulary as every field/conflict row on this
+            screen (docs/DESIGN_SYSTEM.md) — conflicts take priority since they're the more urgent
+            state; the confirmed count (with its real denominator) is the fallback once none are pending. */}
+        {pendingConflicts.length > 0 ? (
+          <VerificationStamp status="conflict" label={`${pendingConflicts.length} conflict(s) pending`} />
+        ) : (
+          <VerificationStamp
+            status="confirmed"
+            label={`${counts.confirmed + counts.edited} of ${entries.length} fields confirmed`}
+          />
         )}
       </div>
 

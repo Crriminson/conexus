@@ -1,8 +1,10 @@
 import { useDocuments } from '@/hooks/useDocuments'
 import { useUploadDocument } from '@/hooks/useUploadDocument'
 import { useRunExtraction } from '@/hooks/useRunExtraction'
+import { describeExtractionProgress } from '@/lib/documents/describeExtractionProgress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Callout } from '@/components/ui/callout'
+import { Badge } from '@/components/ui/badge'
 import { Dropzone } from '@/components/documents/Dropzone'
 import { DocumentListItem } from '@/components/documents/DocumentListItem'
 
@@ -10,6 +12,7 @@ export function DocumentsScreen({ projectId }: { projectId: string }) {
   const { data: documents, isLoading, isError, error } = useDocuments(projectId)
   const upload = useUploadDocument(projectId)
   const runExtraction = useRunExtraction(projectId)
+  const progress = describeExtractionProgress(documents ?? [])
 
   async function handleFiles(files: FileList | null) {
     if (!files) return
@@ -25,6 +28,11 @@ export function DocumentsScreen({ projectId }: { projectId: string }) {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="font-display text-2xl text-ink">Documents</h1>
+        {isLoading ? <Skeleton className="h-5 w-40" /> : !isError && <Badge tone={progress.tone}>{progress.text}</Badge>}
+      </div>
+
       <Dropzone onFiles={handleFiles} />
 
       {upload.isError && (

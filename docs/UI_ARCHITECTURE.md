@@ -15,7 +15,7 @@ Per the instruction not to invent a shim: **there is no "project list" screen in
 | 0 | **Workspace shell** | wraps all routes below | `useEnsureProject` (get-or-create the one project) | `useEnsureProject`, `useProject` (for the header eligibility badge) |
 | 1 | **Documents & extraction** | `/project/documents` | Upload → chunked async extraction (`extract` Edge Function, `pg_cron` reaper) | `useDocuments`, `useUploadDocument`, `useRunExtraction` |
 | 2 | **Facts Review** (incl. conflict resolution) | `/project/review` | Merged `IssuerFacts` (37 fields / 6 domains on the live ANP dataset), human confirm/edit, `FactConflict` resolution | `useProject`, `useDocuments`, `useUpdateFacts`, `useResolveConflict`, `useOpenSource` |
-| 3 | **Document** (eligibility, narrative sections, citations, export) | `/project/document` | `assembleSections` (static/computed/generated), `evaluateEligibility`, `generate-section` Edge Function, `checkExportGate` + Markdown export | `useProject`, `useDocuments`, `useGenerateSections`, `useOpenSource` |
+| 3 | **Draft** (eligibility, narrative sections, citations, export) | `/project/draft` | `assembleSections` (static/computed/generated), `evaluateEligibility`, `generate-section` Edge Function, `checkExportGate` + Markdown export | `useProject`, `useDocuments`, `useGenerateSections`, `useOpenSource` |
 
 Every data need across all three screens is served by an existing hook. **No new hook or backend shim is required for this phase's scope** — see "Flagged gaps" at the end for the one real (non-hook) gap found.
 
@@ -26,7 +26,7 @@ Every data need across all three screens is served by an existing hook. **No new
 /project             → redirect → /project/documents  (first tab is upload; nothing else exists until a document lands)
 /project/documents   → Documents & extraction screen
 /project/review      → Facts Review screen (conflict queue lives here, not a separate route — see below)
-/project/document    → Document screen (eligibility detail, narrative, citations, export)
+/project/draft       → Draft screen (eligibility detail, narrative, citations, export)
 ```
 
 Wouter, same as today. Conflict resolution does **not** get its own route: `FactConflict`s are a state *of* the facts on this project, not an independent resource — a dedicated route would let someone deep-link into "conflicts" while Facts Review itself renders stale data. It gets first-class **screen real estate** instead (see below), inside `/project/review`.
@@ -37,7 +37,7 @@ Wouter, same as today. Conflict resolution does **not** get its own route: `Fact
 
 **Target:** `src/components/layout/AppShell.tsx` — header with the logo (kept as-is per the salvage instruction), project name, and a compact eligibility indicator; nav switches the three routes above. `App.tsx` becomes routing + `AppShell` composition only.
 
-The eligibility promotion is the one real structural decision here: `src/lib/eligibility/types.ts` already documents `EligibilityStatus` as *"a live at-a-glance signal... the traffic light updates as extraction happens"* — that's a description of shell-level chrome, not one-tab content. Proposal: `src/components/eligibility/EligibilityBadge.tsx`, a compact `VerificationStamp`-based summary in the header (visible on every screen, every tab), while the existing rule-by-rule breakdown (`EligibilityCard`) stays put on the Document screen for the detail view. Same `useProject` call, no new hook — React Query already dedupes the cache key across `AppShell` and whichever screen also calls it.
+The eligibility promotion is the one real structural decision here: `src/lib/eligibility/types.ts` already documents `EligibilityStatus` as *"a live at-a-glance signal... the traffic light updates as extraction happens"* — that's a description of shell-level chrome, not one-tab content. Proposal: `src/components/eligibility/EligibilityBadge.tsx`, a compact `VerificationStamp`-based summary in the header (visible on every screen, every tab), while the existing rule-by-rule breakdown (`EligibilityCard`) stays put on the Draft screen for the detail view. Same `useProject` call, no new hook — React Query already dedupes the cache key across `AppShell` and whichever screen also calls it.
 
 ## Screen 1 — Documents & extraction (`/project/documents`)
 
@@ -86,14 +86,16 @@ src/components/review/
 
 States: **loading** (`Skeleton` field rows), **empty conflict queue** (simply not rendered — no conflicts is the normal case, not an empty state needing explanation), **error** (mutation failures, `Callout tone="signature"`), no blocked-by-gate state on this screen.
 
-## Screen 3 — Document (`/project/document`)
+## Screen 3 — Draft (`/project/draft`)
+
+Named "Draft" rather than "Document" — the latter read as a near-duplicate of the Documents (uploads) screen, one letter apart. This is a screen-naming decision only; the underlying document data model (`Section`, `generated_sections`, `assembleSections`, etc.) keeps its existing names throughout.
 
 **Today:** `DocumentView.tsx` does five things in one file: eligibility card, generate-sections button, export button, and rendering every section kind (static/generated/computed-list/computed-table) inline in one large conditional block.
 
 **Target:**
 ```
-src/features/document/
-  DocumentScreen.tsx           screen composition
+src/features/draft/
+  DraftScreen.tsx               screen composition
 src/components/document/
   SectionCard.tsx              one section, dispatches on Section.kind — the single place each kind
                                 renders, closing off the isTable() duplication risk (docs/DECISIONS.md)
@@ -153,4 +155,4 @@ Doc-only phase — no code changed, so `npm run build` / `npm test` / `npm run l
 
 ## What's NOT done here
 
-No screens were touched, no components created, no reorganization executed — this is the plan Phase 3 builds against, one screen per commit, in the order listed above (Documents → Facts Review → Document), per the original phase brief.
+No screens were touched, no components created, no reorganization executed — this is the plan Phase 3 builds against, one screen per commit, in the order listed above (Documents → Facts Review → Draft), per the original phase brief.

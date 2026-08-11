@@ -4,15 +4,18 @@ import { useProject } from '@/hooks/useProject'
 import { useDocuments } from '@/hooks/useDocuments'
 import { useOpenSource } from '@/hooks/useOpenSource'
 import { assembleSections } from '@/lib/templates'
+import { checkExportGate } from '@/lib/export'
+import { describeMissingExport } from '@/lib/progress/computeProgressSteps'
 import { Callout } from '@/components/ui/callout'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { SectionCard } from '@/components/document/SectionCard'
 import { EligibilityCard } from '@/features/eligibility/EligibilityCard'
 import { GenerateSectionsButton } from '@/features/generate/GenerateSectionsButton'
 import { ExportPanel } from '@/features/export/ExportPanel'
 
-function DocumentSkeleton() {
+function DraftSkeleton() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
       <div className="flex items-start justify-between gap-4">
@@ -30,12 +33,16 @@ function DocumentSkeleton() {
 }
 
 /**
- * Document screen: eligibility (detail view), narrative generation,
+ * Draft screen: eligibility (detail view), narrative generation,
  * assembled sections (static/computed/generated, dispatched by SectionCard),
  * and export — the last of Phase 3's three screens
- * (docs/UI_ARCHITECTURE.md, Screen 3).
+ * (docs/UI_ARCHITECTURE.md, Screen 3). Named "Draft" rather than
+ * "Document" so it reads distinctly from the Documents (uploads) screen —
+ * one letter apart was reading as a duplicate. `Section`/`generated_sections`
+ * and the rest of the document data model keep their existing names; this
+ * is a screen-naming change only.
  */
-export function DocumentScreen({ projectId }: { projectId: string }) {
+export function DraftScreen({ projectId }: { projectId: string }) {
   const { data: project, isLoading, isError, error } = useProject(projectId)
   const { data: documents } = useDocuments(projectId)
   const openSource = useOpenSource()
@@ -45,10 +52,10 @@ export function DocumentScreen({ projectId }: { projectId: string }) {
     [project],
   )
 
-  if (isLoading) return <DocumentSkeleton />
+  if (isLoading) return <DraftSkeleton />
   if (isError || !project) {
     return (
-      <Callout tone="signature" title="Failed to load document">
+      <Callout tone="signature" title="Failed to load draft">
         {(error as Error)?.message}
       </Callout>
     )
@@ -75,8 +82,19 @@ export function DocumentScreen({ projectId }: { projectId: string }) {
     openSource(storagePath, page).catch(() => {})
   }
 
+  // Same message Progress rail's own step 5 produces, from the same
+  // checkExportGate call — reused, not recomputed, so the two can't drift.
+  const gate = checkExportGate(project.facts, project.generated_sections)
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="font-display text-2xl text-ink">Draft</h1>
+        <Badge tone={gate.allowed ? 'confirmed' : 'caution'}>
+          {gate.allowed ? 'Ready to export' : describeMissingExport(gate.missingFieldPaths)}
+        </Badge>
+      </div>
+
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <EligibilityCard facts={project.facts} />

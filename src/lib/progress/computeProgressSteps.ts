@@ -32,7 +32,12 @@ function describeDocuments(documents: DocumentRow[]): string | null {
   return failed > 0 ? `${failed} document(s) failed extraction.` : 'Extraction not started yet.'
 }
 
-function describeMissingExport(missingFieldPaths: string[]): string {
+/**
+ * Also used directly by the Draft screen's header chip (`DraftScreen.tsx`)
+ * against the same `checkExportGate` result — reused verbatim, not
+ * recomputed, so the two messages can never drift apart.
+ */
+export function describeMissingExport(missingFieldPaths: string[]): string {
   const facts = missingFieldPaths.filter((p) => !p.startsWith('generated.')).length
   const narrative = missingFieldPaths.filter((p) => p.startsWith('generated.')).length
   if (facts > 0 && narrative > 0) return `${facts} fact(s) unconfirmed, narrative not generated.`

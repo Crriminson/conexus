@@ -13,9 +13,7 @@ import { Callout } from '@/components/ui/callout'
 const FactsReviewScreen = lazy(() =>
   import('@/features/review/FactsReviewScreen').then((m) => ({ default: m.FactsReviewScreen })),
 )
-const DocumentScreen = lazy(() =>
-  import('@/features/document/DocumentScreen').then((m) => ({ default: m.DocumentScreen })),
-)
+const DraftScreen = lazy(() => import('@/features/draft/DraftScreen').then((m) => ({ default: m.DraftScreen })))
 
 function RouteSkeleton() {
   return (
@@ -39,9 +37,9 @@ function ProjectRoutes({ projectId }: { projectId: string }) {
             <FactsReviewScreen projectId={projectId} />
           </Suspense>
         </Route>
-        <Route path="/project/document">
+        <Route path="/project/draft">
           <Suspense fallback={<RouteSkeleton />}>
-            <DocumentScreen projectId={projectId} />
+            <DraftScreen projectId={projectId} />
           </Suspense>
         </Route>
       </Switch>
