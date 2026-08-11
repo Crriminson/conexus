@@ -32,6 +32,13 @@ jobs:
           VITE_SUPABASE_URL: https://fvtazfdppcajoglteutz.supabase.co
           VITE_SUPABASE_ANON_KEY: sb_publishable_qasYv8qHZGh4yklIsffvDw_7jSLjrjq
           VITE_SUPABASE_STORAGE_BUCKET: documents
+          # generated_sections/fact_events migrations are still unapplied
+          # live (docs/STATE.md) — without this, Draft/Facts Review/Audit Log
+          # 42703 on every load with nothing to fall back to. DEMO_MODE
+          # serves fixture data through the same interfaces instead; it
+          # stops doing anything the moment the migrations land, so this can
+          # stay set rather than needing to be pulled later.
+          VITE_DEMO_MODE: 'true'
       - uses: actions/configure-pages@v5
         with:
           enablement: true
