@@ -4,6 +4,7 @@ import { merge } from '../_shared/merge/merge.ts'
 import type { ExtractedFacts } from '../_shared/merge/types.ts'
 import type { IssuerFacts } from '../_shared/factsTypes.ts'
 import { parseModelJson } from '../_shared/parseModelJson.ts'
+import { getFactValue, recordFactEvents, type FactEventInput } from '../_shared/factEvents/index.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -284,6 +285,30 @@ async function persistChunkFacts(
     }
 
     if (updated && updated.length > 0) {
+      const events: FactEventInput[] = [
+        ...result.event.fieldsWritten.map(
+          (fieldPath): FactEventInput => ({
+            projectId,
+            factId: fieldPath,
+            eventType: 'extracted',
+            oldValue: getFactValue(project.facts, fieldPath),
+            newValue: getFactValue(result.facts, fieldPath),
+            source: 'extraction',
+          }),
+        ),
+        ...result.conflicts.map(
+          (conflict): FactEventInput => ({
+            projectId,
+            factId: conflict.fieldPath,
+            eventType: 'conflict_raised',
+            oldValue: conflict.currentValue,
+            newValue: conflict.proposedValue,
+            source: 'extraction',
+          }),
+        ),
+      ]
+      await recordFactEvents(supabase, events)
+
       return { ok: true }
     }
     // version mismatch: another writer updated the project row concurrently.

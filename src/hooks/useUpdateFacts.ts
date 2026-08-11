@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { FieldStatus } from '@/types/facts'
 import { applyHumanEdit, getFieldAtPath, setFieldAtPath, type FactPath } from '@/lib/facts/fieldPath'
+import { recordFactEvents } from '@/lib/factEvents'
 import { projectQueryKey, type ProjectRow } from './useProject'
 
 const MAX_WRITE_RETRIES = 5
@@ -56,11 +57,8 @@ export function useUpdateFacts(projectId: string) {
         const field = getFieldAtPath(current.facts, patch.path)
         if (!field) throw new Error(`No field at path "${patch.path}"`)
 
-        const nextFacts = setFieldAtPath(
-          current.facts,
-          patch.path,
-          applyHumanEdit(field, patch, new Date().toISOString()),
-        )
+        const editedField = applyHumanEdit(field, patch, new Date().toISOString())
+        const nextFacts = setFieldAtPath(current.facts, patch.path, editedField)
 
         const { data: updated, error: writeError } = await supabase
           .from('projects')
@@ -70,7 +68,19 @@ export function useUpdateFacts(projectId: string) {
           .select('id, name, facts, conflicts, merge_events, generated_sections, version')
 
         if (writeError) throw writeError
-        if (updated && updated.length > 0) return updated[0] as ProjectRow
+        if (updated && updated.length > 0) {
+          await recordFactEvents(supabase, [
+            {
+              projectId,
+              factId: patch.path,
+              eventType: patch.status,
+              oldValue: field.value,
+              newValue: editedField.value,
+              source: 'manual',
+            },
+          ])
+          return updated[0] as ProjectRow
+        }
 
         // version moved under us — a background chunk merged while we were
         // reading. Loop: re-read and re-apply this same field onto the newer

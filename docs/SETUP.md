@@ -47,9 +47,12 @@ supabase/migrations/20260804000001_reaper.sql                -- pg_cron reaper f
 supabase/migrations/20260808000000_extraction_chunk_progress.sql  -- documents.extraction_total_chunks/extraction_completed_chunks
 supabase/migrations/20260808000100_document_chunk_plan.sql   -- documents.chunk_plan (client-side chunking)
 supabase/migrations/20260810000000_generated_sections.sql    -- projects.generated_sections (Task 12 narrative sections)
+supabase/migrations/20260811000000_fact_events.sql           -- fact_events table (audit trail)
 ```
 
-**As of 2026-08-10, the last migration above (`generated_sections`) has NOT been applied to the live `fvtazfdppcajoglteutz` project** — the session that wrote Task 12 only had the anon key, which can't run DDL. Someone with DB/Management access needs to apply it before Task 12's Edge Function will work against live data. Check `select generated_sections from projects limit 1;` — if that errors with an unknown column, it hasn't been applied yet.
+**As of 2026-08-11, neither of the last two migrations above (`generated_sections`, `fact_events`) has been applied to the live `fvtazfdppcajoglteutz` project** — every session since Task 12 has only had the anon key, which can't run DDL. Someone with DB/Management access needs to apply both before Task 12's Edge Function and the audit trail work against live data. Check `select generated_sections from projects limit 1;` (unknown-column error → not applied) and `select 1 from fact_events limit 1;` (undefined-table error → not applied).
+
+**`fact_events` also needs the `extract` Edge Function redeployed once the migration lands** — `supabase/functions/extract/index.ts` now writes to this table after every merge. This is safe to deploy *before* the migration too: `recordFactEvents` is deliberately best-effort (see `docs/DECISIONS.md`), so a missing table logs a console error and does not block extraction — but the audit trail obviously won't have any rows until both are done.
 
 Note: `supabase db push` (CLI) is the normal way to do this once linked, but wasn't reliably usable in this project's history due to CLI/environment quirks — direct `psql` against the connection string was used instead and is known to work. Either should be fine on a clean setup.
 

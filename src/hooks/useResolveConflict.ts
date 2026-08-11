@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { getFieldAtPath, setFieldAtPath } from '@/lib/facts/fieldPath'
+import { recordFactEvents } from '@/lib/factEvents'
 import { projectQueryKey, type ProjectRow } from './useProject'
 
 const MAX_WRITE_RETRIES = 5
@@ -72,7 +73,19 @@ export function useResolveConflict(projectId: string) {
           .select('id, name, facts, conflicts, merge_events, generated_sections, version')
 
         if (writeError) throw writeError
-        if (updated && updated.length > 0) return updated[0] as ProjectRow
+        if (updated && updated.length > 0) {
+          await recordFactEvents(supabase, [
+            {
+              projectId,
+              factId: conflict.fieldPath,
+              eventType: 'conflict_resolved',
+              oldValue: conflict.currentValue,
+              newValue: resolution === 'accepted_proposed' ? conflict.proposedValue : conflict.currentValue,
+              source: 'merge',
+            },
+          ])
+          return updated[0] as ProjectRow
+        }
       }
 
       throw new Error('Exceeded retries resolving concurrent updates')
