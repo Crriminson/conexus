@@ -258,6 +258,10 @@ Checked and confirmed **not** gaps: the "per-section lock + filing lock → keep
 
 Also found, while grepping for Framer Motion/Zustand usage to verify §5's "remove" list was actually honored: `package.json` has neither of those, nor react-hook-form nor Zod — all four were correctly never installed despite `CLAUDE.md`'s stack line still listing them. See the next entry for the fix.
 
+## Documents tab integration — validation panel moved onto the landing page
+
+The document validation composition is now shared through `src/components/document/DocumentValidationPanel.tsx` and also rendered from the landing `DocumentsScreen`, so the main page shows validation/export context directly after uploads instead of hiding it only under Draft. `DraftScreen` now reuses that same panel rather than duplicating the logic.
+
 ## CLAUDE.md stack line fix (2026-08-09)
 
 `CLAUDE.md`'s "Stack" line listed Framer Motion, Zustand, react-hook-form, and Zod — none installed (`package.json`) or used anywhere in `src/` (grepped to confirm). This was flagged as outstanding back in Task 1 and never fixed. One-line removal: `React + TypeScript + Vite + Tailwind + shadcn/ui + wouter (routing)`, matching what's actually in `package.json` and `docs/ARCHITECTURE.md` §2's stack list.

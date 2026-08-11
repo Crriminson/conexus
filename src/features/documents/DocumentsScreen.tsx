@@ -1,4 +1,5 @@
 import { useDocuments } from '@/hooks/useDocuments'
+import { useProject } from '@/hooks/useProject'
 import { useUploadDocument } from '@/hooks/useUploadDocument'
 import { useRunExtraction } from '@/hooks/useRunExtraction'
 import { describeExtractionProgress } from '@/lib/documents/describeExtractionProgress'
@@ -7,9 +8,11 @@ import { Callout } from '@/components/ui/callout'
 import { Badge } from '@/components/ui/badge'
 import { Dropzone } from '@/components/documents/Dropzone'
 import { DocumentListItem } from '@/components/documents/DocumentListItem'
+import { DocumentValidationPanel } from '@/components/document/DocumentValidationPanel'
 
 export function DocumentsScreen({ projectId }: { projectId: string }) {
   const { data: documents, isLoading, isError, error } = useDocuments(projectId)
+  const projectQuery = useProject(projectId)
   const upload = useUploadDocument(projectId)
   const runExtraction = useRunExtraction(projectId)
   const progress = describeExtractionProgress(documents ?? [])
@@ -75,6 +78,18 @@ export function DocumentsScreen({ projectId }: { projectId: string }) {
           />
         ))}
       </div>
+
+      {documents?.length ? (
+        <DocumentValidationPanel
+          title="Document validation"
+          projectId={projectId}
+          project={projectQuery.data}
+          documents={documents}
+          isLoading={projectQuery.isLoading}
+          isError={projectQuery.isError}
+          error={projectQuery.error}
+        />
+      ) : null}
     </div>
   )
 }
