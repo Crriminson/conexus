@@ -36,6 +36,17 @@ Most design systems reach for a bright primary + a separate destructive red. Thi
 
 `confirmed` (teal-green) and `caution` (brass) are the other two semantic colors, both genealogically descended from the **existing logo gradient** (`#17C0A9 → #0C3D72`) rather than invented fresh — `docs/UI_INVENTORY.md` flagged the logo as worth keeping as-is; this extends that same DNA into the UI's status vocabulary instead of introducing unrelated hues. Brass/ochre for `caution` specifically (not a generic amber) because it reads as an emblem/seal metal, keeping the whole palette inside the "official document" register rather than borrowing a traffic-light yellow.
 
+### The seal-red rule — pinned once, here, not decided per-screen
+
+`signature` is reserved for exactly three things. Nothing else gets it, in any screen, ever — if a Phase 3 screen wants to reach for red for something not on this list, that's a sign the state belongs to `caution` instead, not a reason to extend this list ad hoc:
+
+1. **A pending `FactConflict`.** Two sources disagree and a human owes the system a call. `VerificationStamp status="conflict"`, `ConflictCard`, and any conflict-count summary pill (Facts Review's status bar, a per-domain conflict badge).
+2. **Blocked-by-gate.** A gate — export, generation, or any future one — that is currently blocking forward progress on a specific, named condition. `Callout tone="signature"` with real `items`, never a bare disabled control.
+3. **Destructive actions and terminal failures.** A failed extraction, a failed upload, a mutation error banner, a delete/discard control. The same "this needs a human's corrective attention now" logic as (1) and (2), just triggered by a system failure instead of a data disagreement.
+4. **A hard-fail verdict from the deterministic eligibility rules engine** (`EligibilityStatus: 'fail'`, `src/lib/eligibility/types.ts`). The one case here that isn't interactive or gate-shaped — included on purpose, because a disqualifying result is exactly the kind of thing this color exists to flag, and leaving it uncovered would just mean Phase 3 invents its own answer for it (`docs/UI_ARCHITECTURE.md` maps the full `EligibilityStatus` vocabulary against this). `warning` is `caution`, not this — it hasn't failed yet.
+
+Explicitly **not** signature: low-confidence-but-not-yet-conflicting data, an AI-proposed value nobody's reviewed yet, "empty/nothing here" states, or emphasis for its own sake. All of those are `caution` (unreviewed/incomplete — brass, lower alarm) or `neutral` (informational). Two colors that both mean "look at this" but at different urgency is the whole point of having two of them — collapsing them back into one red would just recreate the "one bright hue for everything" problem this palette was built to avoid.
+
 ### What was rejected
 
 - **The old bright blue primary** — generic SaaS, not filing-tool register (see above).
