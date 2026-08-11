@@ -1,0 +1,4 @@
+/* Entry point kept stable so main.tsx's `import './index.css'` doesn't need
+   to change. Actual tokens/fonts/base styles live in src/styles/ — see
+   docs/DESIGN_SYSTEM.md. */
+@import "./styles/global.css";

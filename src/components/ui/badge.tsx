@@ -1,39 +1,35 @@
-"use client";
-import * as React from "react"
-import { cn } from "@/components/ui/button"
-import { cva, type VariantProps } from "class-variance-authority"
+import type { ComponentProps } from 'react'
+import { cva, type VariantProps } from 'class-variance-authority'
+import { cn } from '@/lib/utils'
 
-const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-  {
-    variants: {
-      variant: {
-        default:
-          "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
-        secondary:
-          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive:
-          "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-        outline: "text-foreground",
-        success: "border-transparent bg-green-100 text-green-800 hover:bg-green-100/80 dark:bg-green-900 dark:text-green-300",
-        warning: "border-transparent bg-amber-100 text-amber-800 hover:bg-amber-100/80 dark:bg-amber-900 dark:text-amber-300",
-        blue: "border-transparent bg-blue-100 text-blue-800 hover:bg-blue-100/80 dark:bg-blue-900 dark:text-blue-300"
-      },
+/**
+ * Generic tone badge — the same 4-tone vocabulary as `Callout`
+ * (neutral/confirmed/caution/signature), for status labels that don't fit
+ * `VerificationStamp`'s fixed 3-state stamp motif. Per
+ * docs/DESIGN_SYSTEM.md's status-vocabulary mapping, `VerificationStamp` is
+ * reserved for `Field.status` and `FactConflict.resolution`; everything else
+ * (`Section.status`, `EligibilityStatus`, gate/progress states) is "a
+ * token/color", not a stamp — this is that token, as a reusable primitive
+ * instead of each screen redeclaring its own pill.
+ */
+const badgeVariants = cva('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', {
+  variants: {
+    tone: {
+      neutral: 'bg-paper-recessed text-ink-muted',
+      confirmed: 'bg-confirmed-tint text-confirmed',
+      caution: 'bg-caution-tint text-caution',
+      signature: 'bg-signature-tint text-signature',
     },
-    defaultVariants: {
-      variant: "default",
-    },
-  }
-)
+  },
+  defaultVariants: {
+    tone: 'neutral',
+  },
+})
 
-export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {}
+interface BadgeProps extends ComponentProps<'span'>, VariantProps<typeof badgeVariants> {}
 
-function Badge({ className, variant, ...props }: BadgeProps) {
-  return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
-  )
+function Badge({ tone, className, ...props }: BadgeProps) {
+  return <span data-slot="badge" data-tone={tone} className={cn(badgeVariants({ tone }), className)} {...props} />
 }
 
 export { Badge, badgeVariants }

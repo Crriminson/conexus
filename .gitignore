@@ -15,6 +15,11 @@
 # production
 /build
 
+# vite
+dist
+dist-ssr
+*.local
+
 # misc
 .DS_Store
 *.pem
@@ -49,17 +54,5 @@ skills-lock.json
 .gemini
 *.log
 
-# Node
-node_modules/
-
-# Python virtual environment
-backend/venv/
-venv/
-
-# Python cache
-__pycache__/
-*.pyc
-
-# Environment variables
-.env
-.env.local
+# supabase CLI local state
+supabase/.temp/
