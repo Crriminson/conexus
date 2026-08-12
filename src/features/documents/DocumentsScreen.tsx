@@ -30,9 +30,9 @@ export function DocumentsScreen({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="font-display text-2xl text-ink">Documents</h1>
+        <h1 className="font-display text-3xl text-ink">Documents</h1>
         {isLoading ? <Skeleton className="h-5 w-40" /> : !isError && <Badge tone={progress.tone}>{progress.text}</Badge>}
       </div>
 
@@ -80,15 +80,17 @@ export function DocumentsScreen({ projectId }: { projectId: string }) {
       </div>
 
       {documents?.length ? (
-        <DocumentValidationPanel
-          title="Document validation"
-          projectId={projectId}
-          project={projectQuery.data}
-          documents={documents}
-          isLoading={projectQuery.isLoading}
-          isError={projectQuery.isError}
-          error={projectQuery.error}
-        />
+        <div className="border-t border-hairline pt-6">
+          <DocumentValidationPanel
+            title="Document validation"
+            projectId={projectId}
+            project={projectQuery.data}
+            documents={documents}
+            isLoading={projectQuery.isLoading}
+            isError={projectQuery.isError}
+            error={projectQuery.error}
+          />
+        </div>
       ) : null}
     </div>
   )

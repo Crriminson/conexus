@@ -12,7 +12,11 @@
 
 /* Display — Libre Caslon Display. One weight only (400); used sparingly for
    titles, never for body copy. See docs/DESIGN_SYSTEM.md for the reasoning.
-   Above-the-fold on every screen (every h1/h2/h3) — preloaded, see index.html. */
+   Above-the-fold on every screen (every h1/h2/h3) — preloaded at runtime by
+   src/lib/preloadFonts.ts (called from main.tsx before render), not via a
+   static <link> in index.html: the built filename is content-hashed, so the
+   only way to preload the real emitted URL without a build plugin is to
+   import it (`?url`) and inject the <link> from JS. */
 @import "@fontsource/libre-caslon-display/latin-400.css";
 
 /* Body — Public Sans. Designed for the U.S. Web Design System (USWDS) for
@@ -26,7 +30,8 @@
    `latin` block from `wght.css` reproduced directly — same font file, same
    `font-display: swap`, just without the vietnamese/latin-ext subsets that
    block ships alongside it. Above-the-fold (body text on every screen) —
-   preloaded, see index.html. */
+   preloaded at runtime, same mechanism as the display face above (see
+   src/lib/preloadFonts.ts). */
 @font-face {
   font-family: 'Public Sans Variable';
   font-style: normal;

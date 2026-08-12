@@ -15,7 +15,7 @@ export function AuditLogScreen({ projectId }: { projectId: string }) {
 
   if (isLoading) {
     return (
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <Skeleton className="h-6 w-40" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -31,8 +31,8 @@ export function AuditLogScreen({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-      <h1 className="font-display text-2xl text-ink">Audit Log</h1>
+    <div className="flex flex-col gap-4">
+      <h1 className="font-display text-3xl text-ink">Audit Log</h1>
 
       {data.isDemo && (
         <Callout tone="neutral" title="Demo data">

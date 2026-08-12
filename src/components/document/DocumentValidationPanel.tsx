@@ -27,7 +27,7 @@ export interface DocumentValidationPanelProps {
 
 function DocumentValidationSkeleton() {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+    <div className="flex flex-col gap-8">
       <div className="flex items-start justify-between gap-4">
         <Skeleton className="h-24 flex-1" />
         <Skeleton className="h-9 w-48" />
@@ -99,9 +99,9 @@ export function DocumentValidationPanel({
   const gate = checkExportGate(project.facts, project.generated_sections)
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+    <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="font-display text-2xl text-ink">{title}</h1>
+        <h1 className="font-display text-3xl text-ink">{title}</h1>
         <Badge tone={gate.allowed ? 'confirmed' : 'caution'}>
           {gate.allowed ? 'Ready to export' : describeMissingExport(gate.missingFieldPaths)}
         </Badge>

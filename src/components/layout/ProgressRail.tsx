@@ -20,13 +20,13 @@ const STATE_ICON = {
 function StepItem({ step, index }: { step: ProgressStep; index: number }) {
   const Icon = STATE_ICON[step.state]
   return (
-    <li className="flex min-w-0 items-start gap-1.5">
-      <Icon className={cn('mt-0.5 size-3.5 shrink-0', STATE_STYLE[step.state])} aria-hidden="true" />
+    <li className="flex min-w-0 items-start gap-2">
+      <Icon className={cn('mt-0.5 size-4 shrink-0', STATE_STYLE[step.state])} aria-hidden="true" />
       <div className="min-w-0">
-        <p className={cn('text-xs font-medium', step.state === 'locked' ? 'text-ink-muted' : 'text-ink')}>
+        <p className={cn('text-sm font-medium', step.state === 'locked' ? 'text-ink-muted' : 'text-ink')}>
           <span className="font-data tabular-nums text-ink-muted">{index + 1}.</span> {step.label}
         </p>
-        {step.detail && <p className="text-[0.6875rem] text-ink-muted">{step.detail}</p>}
+        {step.detail && <p className="text-xs text-ink-muted">{step.detail}</p>}
       </div>
     </li>
   )
@@ -46,7 +46,7 @@ export function ProgressRail({ projectId }: { projectId: string }) {
   if (projectLoading || documentsLoading) {
     return (
       <div className="border-b border-hairline bg-paper-raised">
-        <div className="mx-auto max-w-4xl px-6 py-2.5">
+        <div className="mx-auto max-w-5xl px-6 py-3">
           <Skeleton className="h-8 w-full" />
         </div>
       </div>
@@ -62,8 +62,8 @@ export function ProgressRail({ projectId }: { projectId: string }) {
 
   return (
     <div className="border-b border-hairline bg-paper-raised">
-      <div className="mx-auto max-w-4xl px-6 py-2.5">
-        <ol className="flex flex-wrap items-start gap-x-6 gap-y-2">
+      <div className="mx-auto max-w-5xl px-6 py-3">
+        <ol className="flex flex-wrap items-start gap-x-8 gap-y-2">
           {steps.map((step, index) => (
             <StepItem key={step.id} step={step} index={index} />
           ))}
