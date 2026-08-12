@@ -6,7 +6,13 @@
 // an empty/non-string body (treated as "didn't generate this section"
 // rather than persisted as empty prose).
 
-import type { ConfirmedFactEntry, GeneratedSectionCitation, GeneratedSectionKey, GeneratedSections } from './types.ts'
+import type {
+  ConfirmedFactEntry,
+  GeneratedSectionCitation,
+  GeneratedSectionKey,
+  GeneratedSections,
+  GeneratedSectionSource,
+} from './types.ts'
 
 const SECTION_KEYS: GeneratedSectionKey[] = ['riskFactors', 'mdAndA', 'businessOverview']
 
@@ -14,7 +20,17 @@ function citationFor(entry: ConfirmedFactEntry): GeneratedSectionCitation {
   return { label: entry.label, fieldPath: entry.fieldPath, sourceDocId: entry.sourceDocId, sourcePage: entry.sourcePage }
 }
 
-export function resolveGeneratedSections(raw: unknown, entries: ConfirmedFactEntry[], generatedAt: string): GeneratedSections {
+// `source` is required, not defaulted: this is the one place every
+// resolved section gets its provenance tag, so the caller (generate-section/
+// index.ts) has to make an explicit choice — 'real' for the actual Gemini
+// response, 'fixture' for buildDemoGeneratedSectionsResponse()'s output —
+// rather than the tag being inferrable/forgettable.
+export function resolveGeneratedSections(
+  raw: unknown,
+  entries: ConfirmedFactEntry[],
+  generatedAt: string,
+  source: GeneratedSectionSource,
+): GeneratedSections {
   const byPath = new Map(entries.map((e) => [e.fieldPath, e]))
   const root = raw as Record<string, unknown> | null | undefined
   const result: GeneratedSections = {}
@@ -29,7 +45,7 @@ export function resolveGeneratedSections(raw: unknown, entries: ConfirmedFactEnt
       .filter((p): p is string => typeof p === 'string' && byPath.has(p))
       .map((p) => citationFor(byPath.get(p)!))
 
-    result[key] = { body, citations, generatedAt }
+    result[key] = { body, citations, generatedAt, source }
   }
 
   return result

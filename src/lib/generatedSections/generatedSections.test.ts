@@ -3,7 +3,15 @@ import type { Field } from '@/types/facts'
 import { emptyIssuerFacts } from '@/types/facts/empty'
 import { createMockProvider } from '@/lib/llm'
 import { parseModelJson } from '@/lib/parseModelJson'
-import { buildDemoGeneratedSectionsResponse, buildGenerationPrompt, collectConfirmedFacts, resolveGeneratedSections } from './index'
+import {
+  buildDemoGeneratedSectionsResponse,
+  buildGenerationPrompt,
+  collectConfirmedFacts,
+  hasFixtureGeneratedSections,
+  resolveGeneratedSections,
+  type GeneratedSectionContent,
+  type GeneratedSectionSource,
+} from './index'
 
 function confirmedField<T>(value: T, sourceDocId: string | null = 'doc-1', page = 1): Field<T> {
   return { value, confidence: null, sourceDocId, sourcePage: page, status: 'confirmed', updatedAt: '2026-01-01T00:00:00.000Z' }
@@ -125,12 +133,13 @@ describe('resolveGeneratedSections', () => {
       mdAndA: { body: 'Some MD&A text.', citedFieldPaths: ['company.legalName', 'financials.netWorth'] },
       businessOverview: { body: 'Some overview text.', citedFieldPaths: [] },
     }
-    const result = resolveGeneratedSections(raw, entries, '2026-08-10T00:00:00.000Z')
+    const result = resolveGeneratedSections(raw, entries, '2026-08-10T00:00:00.000Z', 'real')
 
     expect(result.riskFactors).toEqual({
       body: 'Some risk text.',
       citations: [{ label: 'Net worth', fieldPath: 'financials.netWorth', sourceDocId: 'doc-1', sourcePage: 114 }],
       generatedAt: '2026-08-10T00:00:00.000Z',
+      source: 'real',
     })
     expect(result.mdAndA?.citations).toHaveLength(2)
     expect(result.businessOverview?.citations).toEqual([])
@@ -140,7 +149,7 @@ describe('resolveGeneratedSections', () => {
     const raw = {
       riskFactors: { body: 'Text.', citedFieldPaths: ['financials.netWorth', 'company.cin'] },
     }
-    const result = resolveGeneratedSections(raw, entries, '2026-08-10T00:00:00.000Z')
+    const result = resolveGeneratedSections(raw, entries, '2026-08-10T00:00:00.000Z', 'real')
     expect(result.riskFactors?.citations).toEqual([
       { label: 'Net worth', fieldPath: 'financials.netWorth', sourceDocId: 'doc-1', sourcePage: 114 },
     ])
@@ -152,13 +161,23 @@ describe('resolveGeneratedSections', () => {
       mdAndA: { body: '   ', citedFieldPaths: [] },
       businessOverview: { body: 42, citedFieldPaths: [] },
     }
-    expect(resolveGeneratedSections(raw, entries, '2026-08-10T00:00:00.000Z')).toEqual({})
+    expect(resolveGeneratedSections(raw, entries, '2026-08-10T00:00:00.000Z', 'real')).toEqual({})
   })
 
   it('returns {} for malformed or empty input rather than throwing', () => {
-    expect(resolveGeneratedSections(null, entries, '2026-08-10T00:00:00.000Z')).toEqual({})
-    expect(resolveGeneratedSections({}, entries, '2026-08-10T00:00:00.000Z')).toEqual({})
-    expect(resolveGeneratedSections('not an object', entries, '2026-08-10T00:00:00.000Z')).toEqual({})
+    expect(resolveGeneratedSections(null, entries, '2026-08-10T00:00:00.000Z', 'real')).toEqual({})
+    expect(resolveGeneratedSections({}, entries, '2026-08-10T00:00:00.000Z', 'real')).toEqual({})
+    expect(resolveGeneratedSections('not an object', entries, '2026-08-10T00:00:00.000Z', 'real')).toEqual({})
+  })
+
+  it('stamps every resolved section with whichever source the caller passes, independent of content', () => {
+    const raw = { riskFactors: { body: 'Text.', citedFieldPaths: [] } }
+
+    const real = resolveGeneratedSections(raw, entries, '2026-08-10T00:00:00.000Z', 'real')
+    expect(real.riskFactors?.source).toBe('real')
+
+    const fixture = resolveGeneratedSections(raw, entries, '2026-08-10T00:00:00.000Z', 'fixture')
+    expect(fixture.riskFactors?.source).toBe('fixture')
   })
 })
 
@@ -188,12 +207,13 @@ describe('generate-section flow, via the mock provider', () => {
     expect(provider.calls[0].prompt).toBe(prompt)
 
     const parsed = parseModelJson(rawText)
-    const result = resolveGeneratedSections(parsed, entries, '2026-08-10T00:00:00.000Z')
+    const result = resolveGeneratedSections(parsed, entries, '2026-08-10T00:00:00.000Z', 'real')
 
     expect(Object.keys(result)).toEqual(['riskFactors', 'mdAndA', 'businessOverview'])
     expect(result.riskFactors?.citations).toEqual([
       { label: 'Net worth', fieldPath: 'financials.netWorth', sourceDocId: 'doc-1', sourcePage: 114 },
     ])
+    expect(result.riskFactors?.source).toBe('real')
   })
 
   it('handles a fence-wrapped mock response identically to a bare one', async () => {
@@ -202,8 +222,8 @@ describe('generate-section flow, via the mock provider', () => {
     })
     const rawText = await provider.generate({ prompt: 'x' })
     const parsed = parseModelJson(rawText)
-    expect(resolveGeneratedSections(parsed, [], '2026-08-10T00:00:00.000Z')).toEqual({
-      riskFactors: { body: 'Text.', citations: [], generatedAt: '2026-08-10T00:00:00.000Z' },
+    expect(resolveGeneratedSections(parsed, [], '2026-08-10T00:00:00.000Z', 'real')).toEqual({
+      riskFactors: { body: 'Text.', citations: [], generatedAt: '2026-08-10T00:00:00.000Z', source: 'real' },
     })
   })
 })
@@ -221,22 +241,67 @@ describe('buildDemoGeneratedSectionsResponse', () => {
   it('produces valid JSON that resolves to all 3 sections, each citing every offered entry', () => {
     const rawText = buildDemoGeneratedSectionsResponse(entries)
     const parsed = parseModelJson(rawText)
-    const result = resolveGeneratedSections(parsed, entries, '2026-08-11T00:00:00.000Z')
+    // 'fixture' here mirrors exactly what generate-section/index.ts passes
+    // when this fallback fires — the caller always knows it took this path.
+    const result = resolveGeneratedSections(parsed, entries, '2026-08-11T00:00:00.000Z', 'fixture')
 
     expect(Object.keys(result)).toEqual(['riskFactors', 'mdAndA', 'businessOverview'])
     for (const key of ['riskFactors', 'mdAndA', 'businessOverview'] as const) {
       expect(result[key]?.body).toContain('[Demo mode]')
       expect(result[key]?.citations.map((c) => c.fieldPath)).toEqual(entries.map((e) => e.fieldPath))
+      expect(result[key]?.source).toBe('fixture')
     }
   })
 
   it('produces an empty citedFieldPaths list, and still non-empty bodies, when given zero entries', () => {
     const rawText = buildDemoGeneratedSectionsResponse([])
     const parsed = parseModelJson(rawText)
-    const result = resolveGeneratedSections(parsed, [], '2026-08-11T00:00:00.000Z')
+    const result = resolveGeneratedSections(parsed, [], '2026-08-11T00:00:00.000Z', 'fixture')
 
     expect(Object.keys(result)).toEqual(['riskFactors', 'mdAndA', 'businessOverview'])
     expect(result.riskFactors?.citations).toEqual([])
     expect(result.riskFactors?.body.length).toBeGreaterThan(0)
+    expect(result.riskFactors?.source).toBe('fixture')
+  })
+})
+
+// The "Demo data" banner's actual trigger condition — reads the content's
+// own provenance tag, not any separately-tracked persistence flag. These
+// four cases are named after the task's four content-source × persist-
+// outcome combinations explicitly, even though `hasFixtureGeneratedSections`
+// doesn't take a `persisted` argument at all: that's the fix. Persistence
+// genuinely has no bearing on whether the banner should show, so the same
+// two calls below correctly cover all four named combinations — real
+// content looks identical to the banner whether or not it persisted, and
+// likewise for fixture content.
+describe('hasFixtureGeneratedSections — the banner trigger, decoupled from persistence', () => {
+  function section(source: GeneratedSectionSource): GeneratedSectionContent {
+    return { body: 'Text.', citations: [], generatedAt: '2026-08-12T00:00:00.000Z', source }
+  }
+
+  it('real content + persisted true → banner does not fire', () => {
+    const sections = { riskFactors: section('real'), mdAndA: section('real'), businessOverview: section('real') }
+    expect(hasFixtureGeneratedSections(sections)).toBe(false)
+  })
+
+  it('real content + persisted false → banner does not fire (previously this incorrectly showed "Demo data" on real content)', () => {
+    // Same content as above — persistence outcome is not a parameter here,
+    // which is the point: a failed write no longer mislabels real content.
+    const sections = { riskFactors: section('real'), mdAndA: section('real'), businessOverview: section('real') }
+    expect(hasFixtureGeneratedSections(sections)).toBe(false)
+  })
+
+  it('fixture content + persisted true → banner fires (previously this was the silent-fabrication gap — FIXTURE_INVENTORY.md §4.1)', () => {
+    const sections = { riskFactors: section('fixture'), mdAndA: section('real'), businessOverview: section('real') }
+    expect(hasFixtureGeneratedSections(sections)).toBe(true)
+  })
+
+  it('fixture content + persisted false → banner fires (matches prior behavior for this specific combination)', () => {
+    const sections = { riskFactors: section('fixture'), mdAndA: section('fixture'), businessOverview: section('fixture') }
+    expect(hasFixtureGeneratedSections(sections)).toBe(true)
+  })
+
+  it('empty sections object → banner does not fire', () => {
+    expect(hasFixtureGeneratedSections({})).toBe(false)
   })
 })

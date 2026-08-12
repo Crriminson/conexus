@@ -7,10 +7,12 @@ export { collectConfirmedFacts } from '../../../supabase/functions/_shared/gener
 export { buildGenerationPrompt } from '../../../supabase/functions/_shared/generatedSections/buildGenerationPrompt.ts'
 export { resolveGeneratedSections } from '../../../supabase/functions/_shared/generatedSections/resolveGeneratedSections.ts'
 export { buildDemoGeneratedSectionsResponse } from '../../../supabase/functions/_shared/generatedSections/buildDemoGeneratedSectionsResponse.ts'
+export { hasFixtureGeneratedSections } from '../../../supabase/functions/_shared/generatedSections/hasFixtureGeneratedSections.ts'
 export type {
   ConfirmedFactEntry,
   GeneratedSectionCitation,
   GeneratedSectionContent,
   GeneratedSectionKey,
   GeneratedSections,
+  GeneratedSectionSource,
 } from '../../../supabase/functions/_shared/generatedSections/types.ts'

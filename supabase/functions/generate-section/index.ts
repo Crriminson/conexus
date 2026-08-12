@@ -8,6 +8,7 @@ import {
   collectConfirmedFacts,
   resolveGeneratedSections,
   type GeneratedSections,
+  type GeneratedSectionSource,
 } from '../_shared/generatedSections/index.ts'
 import { isDemoMode, isMissingSchemaError } from '../_shared/demoMode/index.ts'
 
@@ -141,7 +142,16 @@ Deno.serve(async (req: Request) => {
   // fallback isn't specific to that error: anything that stops the real
   // call from returning falls back the same way when DEMO_MODE is on, and
   // fails the request exactly as before when it's off.
+  //
+  // `contentSource` is set right here, at the only point this function
+  // knows for certain which path was taken — never re-derived later from
+  // whether the write to `projects.generated_sections` happens to succeed.
+  // Persistence and content provenance are unrelated questions; conflating
+  // them is exactly what let real content get mislabeled as fixture (and
+  // fixture content escape flagging entirely) depending on migration
+  // timing — see docs/FIXTURE_INVENTORY.md §4.1.
   let rawText: string
+  let contentSource: GeneratedSectionSource = 'real'
   try {
     rawText = await callLLM({
       prompt: buildGenerationPrompt(entries),
@@ -153,6 +163,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: `Generation failed: ${message}` }, 502)
     }
     rawText = buildDemoGeneratedSectionsResponse(entries)
+    contentSource = 'fixture'
   }
 
   const parsed = parseModelJson(rawText)
@@ -163,7 +174,7 @@ Deno.serve(async (req: Request) => {
     )
   }
 
-  const generatedSections = resolveGeneratedSections(parsed, entries, new Date().toISOString())
+  const generatedSections = resolveGeneratedSections(parsed, entries, new Date().toISOString(), contentSource)
   if (Object.keys(generatedSections).length === 0) {
     return jsonResponse({ error: 'Model did not return any usable narrative sections.' }, 502)
   }

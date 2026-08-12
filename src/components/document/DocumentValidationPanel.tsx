@@ -5,6 +5,7 @@ import type { ProjectRow } from '@/hooks/useProject'
 import { useOpenSource } from '@/hooks/useOpenSource'
 import { assembleSections } from '@/lib/templates'
 import { checkExportGate } from '@/lib/export'
+import { hasFixtureGeneratedSections } from '@/lib/generatedSections'
 import { describeMissingExport } from '@/lib/progress/computeProgressSteps'
 import { Callout } from '@/components/ui/callout'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -107,11 +108,13 @@ export function DocumentValidationPanel({
         </Badge>
       </div>
 
-      {project.generatedSectionsIsDemo && (
+      {hasFixtureGeneratedSections(project.generated_sections) && (
         <Callout tone="neutral" title="Demo data">
-          The narrative sections below are fixture content, not real output — the live{' '}
-          <span className="font-data">generated_sections</span> column hasn't been deployed yet. Real generated
-          sections will appear automatically once it lands, with no further changes needed here.
+          One or more of the narrative sections below are fixture content, not real output — either the
+          live <span className="font-data">generated_sections</span> column hasn't been deployed yet, or the
+          last generation attempt fell back to demo content because the real call failed. Real generated
+          sections will appear automatically once a real generation succeeds, with no further changes needed
+          here.
         </Callout>
       )}
 

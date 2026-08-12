@@ -92,12 +92,14 @@ export function fixtureDocuments() {
 
 // Companion to fixtureIssuerFacts() — all 3 of Task 12's generated
 // sections present, for tests that need the export gate to actually pass.
+// `source: 'fixture'` on every section is what drives the "Demo data"
+// banner (hasFixtureGeneratedSections) — not a separately-tracked flag.
 export function fixtureGeneratedSections(): GeneratedSections {
   const citation = { label: 'Legal name', fieldPath: 'company.legalName', sourceDocId: 'fixture-doc', sourcePage: 1 }
   const generatedAt = '2026-08-10T00:00:00.000Z'
   return {
-    riskFactors: { body: 'Fixture risk factors text.', citations: [citation], generatedAt },
-    mdAndA: { body: 'Fixture MD&A text.', citations: [citation], generatedAt },
-    businessOverview: { body: 'Fixture business overview text.', citations: [citation], generatedAt },
+    riskFactors: { body: 'Fixture risk factors text.', citations: [citation], generatedAt, source: 'fixture' },
+    mdAndA: { body: 'Fixture MD&A text.', citations: [citation], generatedAt, source: 'fixture' },
+    businessOverview: { body: 'Fixture business overview text.', citations: [citation], generatedAt, source: 'fixture' },
   }
 }

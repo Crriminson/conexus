@@ -188,6 +188,7 @@ describe('buildGeneratedSections', () => {
         body: 'The company faces litigation risk.',
         citations: [{ label: 'Litigation matter 1 — Status', fieldPath: 'litigation[lit-1].status', sourceDocId: 'doc-1', sourcePage: 12 }],
         generatedAt: '2026-01-01T00:00:00.000Z',
+        source: 'real',
       },
     }
     const sections = buildGeneratedSections(generatedSections)
