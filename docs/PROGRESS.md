@@ -520,3 +520,13 @@ Also on `updates/v2`. Purpose: a definitive map of REAL vs. FIXTURE data across 
 **Files:** `docs/FIXTURE_INVENTORY.md` (new).
 
 **Outstanding:** everything in `docs/FIXTURE_INVENTORY.md`'s closing "two things to verify" is a recommendation, not an action taken. Nothing here fixes anything — next steps (confirming the server secret, then deciding whether to key the "Demo data" banner off content provenance rather than persistence) are for a future task.
+
+## DEMO_MODE fixture inventory — attempted live verification, blocked on credentials
+
+Follow-up to the previous entry: asked to pull `generate-section`'s Edge Function logs and run `supabase secrets list` to directly confirm/correct that inventory's §1.4 finding (server `DEMO_MODE` secret likely unset) instead of leaving it as a documentation-gap inference. **Could not — this session has no Supabase credentials of any kind beyond the public anon key** (checked: no `.env`, no `SUPABASE_ACCESS_TOKEN` or any token-shaped env var, no `supabase` CLI installed, no CLI login state on disk anywhere). Confirmed this is a credentials gap, not a network one: an unauthenticated `curl` to the Management API reached it cleanly and got a clean `401`, not a connection failure. `generate-section` was **not** invoked, no secrets were touched, no code changed — read-only investigation only, per the task.
+
+Recorded as a dated addendum at the bottom of `docs/FIXTURE_INVENTORY.md` (not a rewrite of the existing content) — explains exactly what was checked, why each of the four asks couldn't be completed, and the two commands (CLI or Management API, either needs a real personal access token) whoever has actual project access should run next. The original §1.4 finding stands exactly as before: an inference, not a confirmed observation, neither strengthened nor weakened by this attempt.
+
+**Files:** `docs/FIXTURE_INVENTORY.md` (addendum appended).
+
+**Outstanding:** the live check itself. Needs a human with real `fvtazfdppcajoglteutz` access (Supabase personal access token or dashboard login) to run `supabase functions logs generate-section` and `supabase secrets list`, both against `--project-ref fvtazfdppcajoglteutz`.

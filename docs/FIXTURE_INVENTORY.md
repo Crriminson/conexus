@@ -407,3 +407,71 @@ The two hardcoded-placeholder sections (Definitions/General Info, the export
 disclaimer) aren't `DEMO_MODE`'s problem to fix but are real content gaps if
 the deliverable needs to look final. No code changed here per this task's
 scope — both items above are flagged for a future task, not actioned.
+
+---
+
+## Addendum, 2026-08-12 — attempted live verification via logs/secrets: blocked, no credentials available
+
+A follow-up task asked this session to pull `generate-section`'s Edge
+Function logs and run `supabase secrets list` against `fvtazfdppcajoglteutz`,
+to directly confirm or correct this document's §1.4 finding rather than leave
+it as an inference from documentation gaps. **Could not do either. This is a
+credentials gap in this session, not a finding about the project itself —
+read this addendum as "unverified, here's exactly why," not as new evidence
+either way.**
+
+**What was checked before concluding this:**
+- No `.env` file in the repo (consistent with every prior session note in
+  this file's history).
+- Session environment variables include only `VITE_SUPABASE_URL`,
+  `VITE_SUPABASE_ANON_KEY` (the public `sb_publishable_...` key — the same
+  one baked into `deploy-pages.yml`), and `VITE_SUPABASE_STORAGE_BUCKET`. No
+  `SUPABASE_ACCESS_TOKEN`, no service-role key, no personal access token
+  under any name checked.
+- No `supabase` CLI binary installed in this environment, and no CLI login
+  state (`~/.supabase` or equivalent) anywhere on disk.
+- Confirmed this is a credentials problem, not a network/proxy one: `curl` to
+  `https://api.supabase.com/v1/projects/fvtazfdppcajoglteutz` reached the
+  Management API cleanly and returned `401 Unauthorized` — the endpoint is
+  reachable, there is simply nothing to authenticate with.
+
+**Why this matters for each of the four asks:**
+1. **Edge Function logs** — pulling `generate-section`'s logs requires either
+   `supabase functions logs` (CLI, needs login) or the Management API's
+   analytics/logs endpoint (needs a personal access token). Neither
+   available. **Could not check for `500`s, could not check timing.**
+2. **Server `DEMO_MODE` secret** — `supabase secrets list` requires the same
+   credentials, which this session doesn't have. **Could not confirm or
+   correct §1.4's finding.** That finding stands exactly as it was written:
+   an inference from `docs/SETUP.md` never instructing the secret to be set,
+   not a direct observation — still true, still unverified, not strengthened
+   or weakened by this addendum.
+3. **Successful invocations** — same blocker; no visibility into invocation
+   history without log or dashboard access. Nothing to report either way.
+   (The function was **not** invoked by this session, per the task's explicit
+   instruction — nothing here comes from a live test.)
+4. **Plain-terms answer to "has anyone hit this live, did it fail, is the
+   secret on or off":** **unknown, from this session — cannot be determined
+   without credentials this environment doesn't have.** Every finding in the
+   rest of this document that touches §1.3/§1.4 remains a source-code-level
+   inference, not a confirmed live observation. Treat it accordingly until
+   someone with real access runs the two commands below.
+
+**What would unblock this**, for whoever picks it up next with actual
+project access — either works, no code change needed:
+- `supabase login` interactively (or `export SUPABASE_ACCESS_TOKEN=...` with
+  a personal access token from the Supabase dashboard), then:
+  `supabase functions logs generate-section --project-ref fvtazfdppcajoglteutz`
+  and `supabase secrets list --project-ref fvtazfdppcajoglteutz` (names only,
+  as the task asked — values are never shown by this command regardless).
+- Or the same two calls directly against the Management API
+  (`GET /v1/projects/fvtazfdppcajoglteutz/analytics/endpoints/functions.logs`,
+  `GET /v1/projects/fvtazfdppcajoglteutz/secrets`) with `Authorization:
+  Bearer <personal-access-token>` — the pattern a prior session used
+  successfully for migration checks, per `docs/STATE.md`'s "Environment
+  notes" section, when it had a token available. This session did not.
+
+No application code, secrets, or Supabase state were touched or invoked in
+the course of checking any of the above — everything here was local
+credential/environment inspection plus one unauthenticated `curl` to confirm
+reachability.
