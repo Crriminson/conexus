@@ -30,7 +30,7 @@
 ## 🎥 Platform Demo
 
 <div align="center">
-  <video src="./video1891216235.mp4" width="100%" controls preload="metadata">
+  <video src="https://github.com/Crriminson/Conexus/raw/main/video1891216235.mp4" width="100%" controls preload="metadata">
     Your browser does not support the video tag.
   </video>
 </div>
