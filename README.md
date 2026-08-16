@@ -18,11 +18,22 @@
 > Conexus is an enterprise-grade, AI-native platform designed to streamline, automate, and accelerate the Initial Public Offering (IPO) documentation and compliance lifecycle. It leverages Retrieval-Augmented Generation (RAG) and Google Gemini AI to simplify regulatory review against ICDR standards.
 
 ## 📑 Table of Contents
+- [🎥 Platform Demo](#-platform-demo)
 - [✨ Key Features](#-key-features)
 - [🏗️ Architecture & Tech Stack](#-architecture--tech-stack)
 - [💻 Local Development Guide](#-local-development-guide)
 - [🔮 AI Engine & RAG](#-ai-engine--rag)
 - [📜 License](#-license)
+
+---
+
+## 🎥 Platform Demo
+
+<div align="center">
+  <video src="./video1891216235.mp4" width="100%" controls preload="metadata">
+    Your browser does not support the video tag.
+  </video>
+</div>
 
 ---
 
