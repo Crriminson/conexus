@@ -29,7 +29,9 @@
 
 ## 🎥 Platform Demo
 
-https://github.com/Crriminson/Conexus/raw/main/video1891216235.mp4
+<video src="video1891216235.mp4" controls="controls" style="max-width: 100%;">
+  Your browser does not support the video tag.
+</video>
 
 ---
 
