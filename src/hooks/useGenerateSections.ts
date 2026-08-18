@@ -7,11 +7,18 @@ import { describeFunctionError } from './describeFunctionError'
 interface GenerateSectionsResponse {
   generatedSections: GeneratedSections
   /**
-   * False when the Edge Function generated real content but couldn't write
-   * it to `projects.generated_sections` because that column's migration
-   * hasn't been applied yet (DEMO_MODE's fallback — see
-   * generate-section/index.ts's persistGeneratedSections). When false, the
-   * content only exists in this response; there is nothing to re-fetch.
+   * False when the write to `projects.generated_sections` couldn't happen
+   * because that column's migration hasn't been applied yet (DEMO_MODE's
+   * persist-step fallback — see generate-section/index.ts's
+   * persistGeneratedSections). When false, the content only exists in this
+   * response; there is nothing to re-fetch.
+   *
+   * This says nothing about whether `generatedSections` itself is real or
+   * fixture content — that's `GeneratedSectionContent.source`, tagged
+   * independently on the content by generate-section/index.ts at the point
+   * it's generated. Persistence and content provenance are unrelated;
+   * either combination is possible (real content that fails to persist,
+   * fixture content that persists fine once the migration lands).
    */
   persisted: boolean
 }
@@ -38,16 +45,17 @@ export function useGenerateSections(projectId: string) {
         return
       }
       // Nothing was written (pre-migration DEMO_MODE fallback): the content
-      // this call just generated only exists in this response, so patch it
-      // into the cache directly rather than invalidating — a refetch here
-      // would just re-run useProject's own unrelated fixture fallback and
-      // discard the real generated text this call actually produced.
+      // this call just generated — real or fixture, whichever generate-
+      // section actually produced, each section already tagged with its own
+      // `source` — only exists in this response, so patch it into the cache
+      // directly rather than invalidating. A refetch here would just re-run
+      // useProject's own unrelated fixture fallback and discard whatever
+      // this call actually produced.
       queryClient.setQueryData<ProjectRow>(queryKey, (previous) =>
         previous
           ? {
               ...previous,
               generated_sections: { ...previous.generated_sections, ...result.generatedSections },
-              generatedSectionsIsDemo: true,
             }
           : previous,
       )

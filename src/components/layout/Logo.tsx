@@ -7,18 +7,25 @@
  * the rest of the UI. It also turned out the bull-on-bars graphic itself
  * (the original hand-authored SVG path data) was a rough approximation of
  * the actual brand mark, not a faithful copy — replaced with a crop of the
- * real source artwork (`public/conexus-mark.png`), background keyed to
+ * real source artwork (`src/assets/conexus-mark.png`), background keyed to
  * transparent, sized for crisp display well above the header's actual
  * render size rather than upscaled. The wordmark stays live text in Public
  * Sans, spaced with a real Tailwind tracking step instead of a per-letter
  * baked value; the "X" keeps the brand's teal-to-navy gradient (the same
  * two colors as the mark's bar/arrow gradient), the one place this
  * wordmark isn't flat ink.
+ *
+ * Imported from src/assets (not referenced as a public/ root path) so Vite
+ * resolves it through the asset pipeline and the emitted URL carries the
+ * configured `base` — a root-absolute `/conexus-mark.png` 404s under any
+ * non-root base (e.g. the GitHub Pages build's `/conexus/`).
  */
+import conexusMark from '@/assets/conexus-mark.png'
+
 export function Logo({ className }: { className?: string }) {
   return (
     <div className={`flex items-center gap-2 ${className ?? ''}`}>
-      <img src="/conexus-mark.png" alt="" className="h-8 w-auto" />
+      <img src={conexusMark} alt="" className="h-8 w-auto" />
       <span className="font-sans text-xl font-black tracking-normal text-ink">
         CONE
         <span className="bg-gradient-to-br from-[#17c0a9] to-[#0c3d72] bg-clip-text text-transparent">X</span>

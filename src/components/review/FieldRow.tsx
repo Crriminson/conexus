@@ -127,7 +127,7 @@ export function FieldRow({
             )}
 
             {field.confidence !== null && (
-              <span className={`font-data tabular-nums ${isLowConfidence ? 'font-medium text-caution' : ''}`}>
+              <span className={`font-data font-medium tabular-nums ${isLowConfidence ? 'text-caution' : 'text-ink-muted'}`}>
                 {Math.round(field.confidence * 100)}% confident
               </span>
             )}
@@ -136,7 +136,7 @@ export function FieldRow({
               <button
                 type="button"
                 onClick={() => onOpenSource(sourceDoc.storage_path, field.sourcePage)}
-                className="interactive rounded-sm text-ink-muted underline-offset-2 hover:text-ink hover:underline"
+                className="interactive rounded-sm text-ink-muted underline decoration-hairline-strong underline-offset-2 hover:text-ink hover:decoration-ink"
               >
                 {sourceDoc.filename}
                 {field.sourcePage ? ` p.${field.sourcePage}` : ''}

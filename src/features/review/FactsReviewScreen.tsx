@@ -18,7 +18,7 @@ import { DomainSection } from '@/components/review/DomainSection'
 
 function FactsReviewSkeleton() {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <Skeleton className="h-6 w-64" />
       <Skeleton className="h-8 w-full" />
       {[0, 1, 2].map((i) => (
@@ -100,9 +100,9 @@ export function FactsReviewScreen({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="font-display text-2xl text-ink">Facts Review</h1>
+        <h1 className="font-display text-3xl text-ink">Facts Review</h1>
         {/* One chip, same pinned VerificationStamp vocabulary as every field/conflict row on this
             screen (docs/DESIGN_SYSTEM.md) — conflicts take priority since they're the more urgent
             state; the confirmed count (with its real denominator) is the fallback once none are pending. */}
@@ -131,15 +131,17 @@ export function FactsReviewScreen({ projectId }: { projectId: string }) {
         onOpenSource={onOpenSource}
       />
 
-      <FilterBar counts={counts} activeFilter={statusFilter} onFilterChange={setStatusFilter} domains={DOMAIN_ORDER} />
+      <div className="flex flex-col gap-3">
+        <FilterBar counts={counts} activeFilter={statusFilter} onFilterChange={setStatusFilter} domains={DOMAIN_ORDER} />
 
-      <BulkConfirmBar
-        paths={bulkConfirmPaths}
-        isBusy={isBusy}
-        onConfirmField={(path) => updateFacts.mutateAsync({ path, status: 'confirmed' })}
-      />
+        <BulkConfirmBar
+          paths={bulkConfirmPaths}
+          isBusy={isBusy}
+          onConfirmField={(path) => updateFacts.mutateAsync({ path, status: 'confirmed' })}
+        />
+      </div>
 
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-5 border-t border-hairline pt-6">
         {DOMAIN_ORDER.map((domain) => (
           <DomainSection
             key={domain.key}

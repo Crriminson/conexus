@@ -5,6 +5,7 @@ import type { ProjectRow } from '@/hooks/useProject'
 import { useOpenSource } from '@/hooks/useOpenSource'
 import { assembleSections } from '@/lib/templates'
 import { checkExportGate } from '@/lib/export'
+import { hasFixtureGeneratedSections } from '@/lib/generatedSections'
 import { describeMissingExport } from '@/lib/progress/computeProgressSteps'
 import { Callout } from '@/components/ui/callout'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -27,7 +28,7 @@ export interface DocumentValidationPanelProps {
 
 function DocumentValidationSkeleton() {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+    <div className="flex flex-col gap-8">
       <div className="flex items-start justify-between gap-4">
         <Skeleton className="h-24 flex-1" />
         <Skeleton className="h-9 w-48" />
@@ -99,19 +100,21 @@ export function DocumentValidationPanel({
   const gate = checkExportGate(project.facts, project.generated_sections)
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+    <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="font-display text-2xl text-ink">{title}</h1>
+        <h1 className="font-display text-3xl text-ink">{title}</h1>
         <Badge tone={gate.allowed ? 'confirmed' : 'caution'}>
           {gate.allowed ? 'Ready to export' : describeMissingExport(gate.missingFieldPaths)}
         </Badge>
       </div>
 
-      {project.generatedSectionsIsDemo && (
+      {hasFixtureGeneratedSections(project.generated_sections) && (
         <Callout tone="neutral" title="Demo data">
-          The narrative sections below are fixture content, not real output — the live{' '}
-          <span className="font-data">generated_sections</span> column hasn't been deployed yet. Real generated
-          sections will appear automatically once it lands, with no further changes needed here.
+          One or more of the narrative sections below are fixture content, not real output — either the
+          live <span className="font-data">generated_sections</span> column hasn't been deployed yet, or the
+          last generation attempt fell back to demo content because the real call failed. Real generated
+          sections will appear automatically once a real generation succeeds, with no further changes needed
+          here.
         </Callout>
       )}
 

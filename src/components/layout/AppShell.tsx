@@ -20,7 +20,7 @@ export function AppShell({ projectId, children }: { projectId: string; children:
   return (
     <div className="min-h-screen bg-paper">
       <header className="border-b border-hairline bg-paper-raised">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-6 py-3">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-3">
           <Logo />
 
           <nav className="flex gap-1 rounded-lg border border-hairline bg-paper p-1">
@@ -44,7 +44,7 @@ export function AppShell({ projectId, children }: { projectId: string; children:
 
       <ProgressRail projectId={projectId} />
 
-      <main className="mx-auto max-w-4xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>
     </div>
   )
 }
