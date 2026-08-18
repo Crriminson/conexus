@@ -1,0 +1,1 @@
+import{i as e}from"./dist-C3P6GPC2.js";import{f as t,l as n}from"./useOpenSource-l0_jFfsB.js";import{t as r}from"./DocumentValidationPanel-CRbYUlnY.js";var i=e();function a({projectId:e}){let{data:a,isLoading:o,isError:s,error:c}=n(e),{data:l}=t(e);return(0,i.jsx)(r,{title:`Draft`,projectId:e,project:a,documents:l,isLoading:o,isError:s,error:c})}export{a as DraftScreen};
